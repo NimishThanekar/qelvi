@@ -1,0 +1,224 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Theme variables ───────────────────────────────────────────── */
+:root,
+[data-theme="cobalt"] {
+  --accent-rgb: 59 123 255;
+  --accent-soft-rgb: 111 163 255;
+  --accent-dim: #1a2a4a;
+  --bg: #0a0a0a;
+  --bg-card: #111111;
+  --bg-elevated: #161616;
+  --bg-border: #222222;
+  --text-primary: #f0f0f0;
+  --text-secondary: #a1a1aa;
+  --text-muted: #52525b;
+  --btn-fg: #000000;
+}
+
+[data-theme="paper"] {
+  --accent-rgb:      15 15 15;
+  --accent-soft-rgb: 60 60 60;
+  --accent-dim:      #e8e8e8;
+  --bg:              #ffffff;
+  --bg-card:         #f7f7f7;
+  --bg-elevated:     #efefef;
+  --bg-border:       #e0e0e0;
+  --text-primary:    #0a0a0a;
+  --text-secondary:  #404040;
+  --text-muted:      #909090;
+  --btn-fg:          #ffffff;
+}
+
+[data-theme="cyan"] {
+  --accent-rgb: 6 182 212;
+  --accent-soft-rgb: 103 232 249;
+  --accent-dim: #042c32;
+  --bg: #080d0f;
+  --bg-card: #0c1214;
+  --bg-elevated: #0f1a1d;
+  --bg-border: #1a2a2d;
+  --text-primary: #f0f0f0;
+  --text-secondary: #94a3b0;
+  --text-muted: #3a6b72;
+}
+
+[data-theme="mono"] {
+  --accent-rgb:      235 235 235;
+  --accent-soft-rgb: 255 255 255;
+  --accent-dim:      #1c1c1c;
+  --bg:              #000000;
+  --bg-card:         #0d0d0d;
+  --bg-elevated:     #141414;
+  --bg-border:       #262626;
+  --text-primary:    #ffffff;
+  --text-secondary:  #a3a3a3;
+  --text-muted:      #525252;
+}
+
+[data-theme="aura"] {
+  --accent-rgb:      168 85 247;
+  --accent-soft-rgb: 216 180 254;
+  --accent-dim:      #2e1065;
+  --bg:              #0c0b14;
+  --bg-card:         #121020;
+  --bg-elevated:     #1c1830;
+  --bg-border:       #2c2448;
+  --text-primary:    #f0f0f0;
+  --text-secondary:  #a89fc0;
+  --text-muted:      #5a4d80;
+}
+
+[data-theme="neon"] {
+  --accent-rgb:      236 72 153;
+  --accent-soft-rgb: 249 168 212;
+  --accent-dim:      #4a0e2a;
+  --bg:              #0f080c;
+  --bg-card:         #160d12;
+  --bg-elevated:     #1f1018;
+  --bg-border:       #301828;
+  --text-primary:    #f0f0f0;
+  --text-secondary:  #c090a8;
+  --text-muted:      #6a3a55;
+}
+
+[data-theme="rose"] {
+  --accent-rgb: 225 29 72;
+  --accent-soft-rgb: 251 113 133;
+  --accent-dim: #3f0d1a;
+  --bg: #0a080a;
+  --bg-card: #120d10;
+  --bg-elevated: #1a1018;
+  --bg-border: #2a1a22;
+  --text-primary: #f0f0f0;
+  --text-secondary: #b0a0a8;
+  --text-muted: #6b4a55;
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: "DM Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-card);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ── Component classes ─────────────────────────────────────────── */
+@layer components {
+  .card {
+    @apply bg-bg-card border border-bg-border rounded-2xl relative overflow-hidden;
+  }
+  .card-elevated {
+    @apply bg-bg-elevated border border-bg-border rounded-2xl relative overflow-hidden;
+  }
+  .btn-primary {
+    @apply bg-accent-primary font-semibold px-5 py-2.5 rounded-xl hover:bg-accent-soft transition-all duration-200 text-sm disabled:opacity-40 disabled:cursor-not-allowed;
+    color: var(--btn-fg);
+  }
+  .btn-ghost {
+    @apply border border-bg-border text-text-secondary px-5 py-2.5 rounded-xl hover:bg-bg-elevated hover:text-text-primary transition-all duration-200 text-sm;
+  }
+  .input {
+    @apply w-full bg-bg-elevated border border-bg-border rounded-xl px-4 py-3 text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary/40 focus:ring-1 focus:ring-accent-primary/10 transition-all text-sm;
+  }
+  .label {
+    @apply text-xs text-text-muted font-medium uppercase tracking-wider mb-1.5 block;
+  }
+}
+
+/* ── Animations ────────────────────────────────────────────────── */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes ringFill {
+  from {
+    stroke-dashoffset: 314;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.35s ease forwards;
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+.animate-scale-in {
+  animation: scaleIn 0.3s ease forwards;
+}
+.ring-animated {
+  animation: ringFill 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.stagger > * {
+  animation: slideUp 0.35s ease forwards;
+  opacity: 0;
+}
+.stagger > *:nth-child(1) {
+  animation-delay: 0.04s;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 0.08s;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 0.16s;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 0.2s;
+}
+.stagger > *:nth-child(6) {
+  animation-delay: 0.24s;
+}
