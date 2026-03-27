@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Search, Plus, Minus } from "lucide-react";
 import { foodApi, logsApi } from "../lib/api";
-import type { FoodItem, MealType } from "../types";
-import { MEAL_TYPES, getCategoryImage } from "../types";
+import type { FoodItem, MealType, ContextStat } from "../types";
+import { MEAL_TYPES, MEAL_CONTEXTS, getCategoryImage } from "../types";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -13,6 +13,39 @@ interface Props {
 }
 
 type ServingType = "scoop" | "bowl" | "restaurant" | "piece" | "custom";
+
+function ContextInsight({ stat }: { stat: ContextStat }) {
+  const isRisky = stat.vs_home_delta !== null ? stat.vs_home_delta > 200 : stat.over_goal_pct > 50;
+  const isWarning = !isRisky && stat.over_goal_pct > 40;
+
+  let message = "";
+  if (stat.vs_home_delta !== null && stat.vs_home_delta > 200) {
+    message = `You average +${stat.vs_home_delta} kcal here vs home — pace yourself.`;
+  } else if (stat.over_goal_pct > 50) {
+    message = `You exceed your goal ${stat.over_goal_pct}% of the time here.`;
+  } else if (stat.over_goal_pct <= 20) {
+    message = `You stay on track ${100 - stat.over_goal_pct}% of the time here — great spot.`;
+  } else if (stat.vs_home_delta !== null && stat.vs_home_delta < -100) {
+    message = `You eat lighter here — ${Math.abs(stat.vs_home_delta)} kcal below your home average.`;
+  } else {
+    message = `Avg ${stat.avg_calories} kcal here · on track ${100 - stat.over_goal_pct}% of days.`;
+  }
+
+  const color = isRisky ? "#fb923c" : isWarning ? "#fbbf24" : "#34d399";
+  const bg = isRisky ? "rgba(251,146,60,0.08)" : isWarning ? "rgba(251,191,36,0.08)" : "rgba(52,211,153,0.08)";
+  const border = isRisky ? "rgba(251,146,60,0.2)" : isWarning ? "rgba(251,191,36,0.2)" : "rgba(52,211,153,0.2)";
+  const icon = isRisky ? "⚠️" : isWarning ? "💡" : "✓";
+
+  return (
+    <div
+      className="mt-2 rounded-lg px-2.5 py-2 text-xs leading-snug flex items-start gap-1.5"
+      style={{ backgroundColor: bg, border: `1px solid ${border}`, color }}
+    >
+      <span className="flex-shrink-0">{icon}</span>
+      <span>{message}</span>
+    </div>
+  );
+}
 
 export default function FoodSearchModal({
   onClose,
@@ -29,6 +62,8 @@ export default function FoodSearchModal({
   const [quantity, setQuantity] = useState(1);
   const [customGrams, setCustomGrams] = useState(100);
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
+  const [context, setContext] = useState<string | null>(null);
+  const [contextStatsMap, setContextStatsMap] = useState<Record<string, ContextStat>>({});
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
 
@@ -38,6 +73,11 @@ export default function FoodSearchModal({
   useEffect(() => {
     foodApi.categories().then((r) => setCategories(r.data));
     searchFoods("", "", mealType);
+    logsApi.contextStats().then((r) => {
+      const map: Record<string, ContextStat> = {};
+      r.data.forEach((s: ContextStat) => { map[s.context] = s; });
+      setContextStatsMap(map);
+    }).catch(() => {});
   }, []);
 
   const searchFoods = useCallback(async (q: string, cat = "", mt = "") => {
@@ -127,6 +167,7 @@ export default function FoodSearchModal({
       await logsApi.create({
         date,
         meal_type: mealType,
+        context,
         entries: [
           {
             food_id: selected.id,
@@ -346,6 +387,21 @@ export default function FoodSearchModal({
                 {/* Quantity */}
                 <div>
                   <label className="label">Quantity</label>
+                  <div className="flex gap-1.5 mb-2">
+                    {[0.5, 1, 1.5, 2].map((mult) => (
+                      <button
+                        key={mult}
+                        onClick={() => setQuantity(mult)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          quantity === mult
+                            ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
+                            : "bg-bg-elevated text-text-secondary hover:text-text-primary border border-transparent"
+                        }`}
+                      >
+                        {mult}x
+                      </button>
+                    ))}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setQuantity(Math.max(0.5, quantity - 0.5))}
@@ -363,6 +419,31 @@ export default function FoodSearchModal({
                       <Plus size={14} />
                     </button>
                   </div>
+                </div>
+
+                {/* Context */}
+                <div>
+                  <label className="label">Where are you eating?</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MEAL_CONTEXTS.map((ctx) => (
+                      <button
+                        key={ctx.value}
+                        onClick={() => setContext(context === ctx.value ? null : ctx.value)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-all ${
+                          context === ctx.value
+                            ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
+                            : "bg-bg-elevated text-text-secondary hover:text-text-primary border border-transparent"
+                        }`}
+                      >
+                        <span>{ctx.emoji}</span>
+                        <span>{ctx.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {/* Live context intelligence warning */}
+                  {context && contextStatsMap[context] && contextStatsMap[context].count >= 3 && (
+                    <ContextInsight stat={contextStatsMap[context]} />
+                  )}
                 </div>
 
                 {/* Calorie preview */}

@@ -39,7 +39,54 @@ export interface MealLog {
   entries: MealEntry[];
   total_calories: number;
   notes?: string;
+  context?: string;
   created_at: string;
+}
+
+export interface FrequentFood extends MealEntry {
+  count: number;
+}
+
+export interface MealTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  meal_type: string;
+  entries: MealEntry[];
+  total_calories: number;
+  created_at: string;
+}
+
+export interface GroupMember {
+  user_id: string;
+  name: string;
+  checked_in_today: boolean;
+  is_me: boolean;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  code: string;
+  members: GroupMember[];
+}
+
+export interface DayStatus {
+  date: string;
+  recovery_day: boolean;
+  yesterday_calories: number;
+  surplus_pct: number;
+  calorie_goal: number;
+  yesterday_context?: string;
+}
+
+export interface ContextStat {
+  context: string;
+  avg_calories: number;
+  count: number;
+  over_goal_pct: number;
+  days_with_context: number;
+  vs_home_delta: number | null;
 }
 
 export interface DailySummary {
@@ -58,6 +105,16 @@ export const MEAL_TYPES: { value: MealType; label: string; emoji: string; color:
   { value: 'dinner', label: 'Dinner', emoji: '🌙', color: '#a78bfa' },
   { value: 'snack', label: 'Snack', emoji: '🍎', color: '#34d399' },
   { value: 'adhoc', label: 'Anytime', emoji: '⚡', color: '#38bdf8' },
+];
+
+export const MEAL_CONTEXTS = [
+  { value: 'home', label: 'Home', emoji: '🏠' },
+  { value: 'office', label: 'Office', emoji: '💼' },
+  { value: 'restaurant', label: 'Restaurant', emoji: '🍽️' },
+  { value: 'street_food', label: 'Street', emoji: '🛺' },
+  { value: 'travel', label: 'Travel', emoji: '✈️' },
+  { value: 'party', label: 'Party', emoji: '🎉' },
+  { value: 'late_night', label: 'Late Night', emoji: '🌙' },
 ];
 
 export const CATEGORY_IMAGES: Record<string, string> = {

@@ -15,6 +15,8 @@ import {
 import { logsApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import { useAccentColor } from "../store/themeStore";
+import type { ContextStat } from "../types";
+import { MEAL_CONTEXTS } from "../types";
 import { TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
 
 type Range = "7d" | "14d" | "30d";
@@ -46,8 +48,13 @@ export default function History() {
   const [range, setRange] = useState<Range>("7d");
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [contextStats, setContextStats] = useState<ContextStat[]>([]);
 
   const days = range === "7d" ? 7 : range === "14d" ? 14 : 30;
+
+  useEffect(() => {
+    logsApi.contextStats().then((r) => setContextStats(r.data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -350,6 +357,87 @@ export default function History() {
           })}
         </div>
       </div>
+
+      {/* Eating Environments breakdown */}
+      {contextStats.length > 0 && (
+        <div className="card mt-4 overflow-hidden">
+          <div className="p-4 border-b border-bg-elevated">
+            <h3 className="text-sm font-semibold text-text-primary">Eating environments</h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              Where you tend to eat more — based on your last 60 days
+            </p>
+          </div>
+          <div className="p-4 space-y-4">
+            {contextStats.map((stat) => {
+              const info = MEAL_CONTEXTS.find((c) => c.value === stat.context);
+              const maxCal = Math.max(...contextStats.map((s) => s.avg_calories), 1);
+              const barWidth = Math.round((stat.avg_calories / maxCal) * 100);
+              const goal = user?.calorie_goal || 2000;
+              const barColor =
+                stat.avg_calories > goal
+                  ? "#f87171"
+                  : stat.avg_calories > goal * 0.88
+                  ? "#fb923c"
+                  : accentColor;
+
+              return (
+                <div key={stat.context}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{info?.emoji ?? "📍"}</span>
+                      <span className="text-xs text-text-secondary font-medium">
+                        {info?.label ?? stat.context}
+                      </span>
+                      <span className="text-[10px] text-text-muted">
+                        ({stat.count} log{stat.count !== 1 ? "s" : ""})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {stat.vs_home_delta !== null && stat.context !== "home" && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                          style={{
+                            backgroundColor: stat.vs_home_delta > 0 ? "#fb923c15" : "#34d39915",
+                            color: stat.vs_home_delta > 0 ? "#fb923c" : "#34d399",
+                          }}
+                        >
+                          {stat.vs_home_delta > 0 ? "+" : ""}{stat.vs_home_delta} vs home
+                        </span>
+                      )}
+                      <span className="text-xs font-semibold text-text-primary">
+                        {stat.avg_calories} kcal
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-2 bg-bg-elevated rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${barWidth}%`, backgroundColor: barColor }}
+                      />
+                    </div>
+                    <span
+                      className="text-[10px] w-16 text-right flex-shrink-0"
+                      style={{ color: stat.over_goal_pct > 50 ? "#fb923c" : "var(--text-muted)" }}
+                    >
+                      {stat.over_goal_pct}% over goal
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Goal reference line label */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex-1 h-px border-t border-dashed border-bg-border" />
+              <span className="text-[10px] text-text-muted flex-shrink-0">
+                your goal: {user?.calorie_goal || 2000} kcal
+              </span>
+              <div className="flex-1 h-px border-t border-dashed border-bg-border" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

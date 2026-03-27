@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import connect_db, close_db
-from app.routers import auth, food, logs
+from app.routers import auth, food, logs, groups
 
 app = FastAPI(title="Calorie Tracker API", version="1.0.0")
 
@@ -27,6 +27,7 @@ async def shutdown():
 app.include_router(auth.router)
 app.include_router(food.router)
 app.include_router(logs.router)
+app.include_router(groups.router)
 
 
 @app.get("/health")

@@ -51,4 +51,18 @@ export const logsApi = {
     api.get('/logs/history/range', { params: { start_date: start, end_date: end } }),
   macroHistory: (start: string, end: string) =>
     api.get('/logs/history/macros', { params: { start_date: start, end_date: end } }),
+  frequent: () => api.get('/logs/frequent'),
+  repeatLast: (mealType: string) => api.get('/logs/repeat-last', { params: { meal_type: mealType } }),
+  saveTemplate: (data: any) => api.post('/logs/save-template', data),
+  getTemplates: () => api.get('/logs/templates'),
+  dayStatus: () => api.get('/logs/day-status'),
+  contextStats: () => api.get('/logs/context-stats'),
+};
+
+// Groups
+export const groupsApi = {
+  create: (name: string) => api.post('/groups/create', { name }),
+  join: (code: string) => api.post(`/groups/join/${code}`),
+  checkin: (groupId: string) => api.post(`/groups/checkin/${groupId}`),
+  my: () => api.get('/groups/my'),
 };

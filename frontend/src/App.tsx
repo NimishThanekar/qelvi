@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import LogMeal from './pages/LogMeal';
 import History from './pages/History';
 import Profile from './pages/Profile';
+import Groups from './pages/Groups';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="log" element={<LogMeal />} />
           <Route path="history" element={<History />} />
+          <Route path="groups" element={<Groups />} />
           <Route path="profile" element={<Profile />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

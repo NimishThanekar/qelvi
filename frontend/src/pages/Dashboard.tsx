@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import {
   ChevronLeft,
@@ -9,15 +9,43 @@ import {
   Target,
   TrendingUp,
   Coffee,
+  RotateCcw,
+  Share2,
 } from "lucide-react";
 import { logsApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import { useAccentColor } from "../store/themeStore";
-import type { DailySummary, MealLog } from "../types";
-import { MEAL_TYPES } from "../types";
+import type { DailySummary, MealLog, FrequentFood, DayStatus, ContextStat } from "../types";
+import { MEAL_TYPES, MEAL_CONTEXTS } from "../types";
 import CalorieRing from "../components/CalorieRing";
 import FoodSearchModal from "../components/FoodSearchModal";
+import ShareModal from "../components/ShareModal";
 import toast from "react-hot-toast";
+
+function CountUp({ to, duration = 650 }: { to: number; duration?: number }) {
+  const [display, setDisplay] = useState(to);
+  const currentRef = useRef(to);
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    cancelAnimationFrame(rafRef.current);
+    const from = currentRef.current;
+    if (from === to) return;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - (1 - t) ** 3;
+      const next = Math.round(from + (to - from) * eased);
+      currentRef.current = next;
+      setDisplay(next);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [to, duration]);
+
+  return <>{display}</>;
+}
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -27,6 +55,10 @@ export default function Dashboard() {
   const [_loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [activeMealType, setActiveMealType] = useState<any>("lunch");
+  const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([]);
+  const [dayStatus, setDayStatus] = useState<DayStatus | null>(null);
+  const [contextStats, setContextStats] = useState<ContextStat[]>([]);
+  const [showShare, setShowShare] = useState(false);
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -50,6 +82,12 @@ export default function Dashboard() {
     fetchSummary();
   }, [fetchSummary]);
 
+  useEffect(() => {
+    logsApi.frequent().then((r) => setFrequentFoods(r.data)).catch(() => {});
+    logsApi.dayStatus().then((r) => setDayStatus(r.data)).catch(() => {});
+    logsApi.contextStats().then((r) => setContextStats(r.data)).catch(() => {});
+  }, []);
+
   const changeDate = (days: number) => {
     const d = new Date(date);
     d.setDate(d.getDate() + days);
@@ -68,10 +106,73 @@ export default function Dashboard() {
     }
   };
 
+  const getCurrentMealType = () => {
+    const h = new Date().getHours();
+    if (h >= 6 && h < 11) return "breakfast";
+    if (h >= 11 && h < 15) return "lunch";
+    if (h >= 15 && h < 19) return "snack";
+    if (h >= 19 && h < 23) return "dinner";
+    return "adhoc";
+  };
+
+  const quickLog = async (food: FrequentFood) => {
+    try {
+      await logsApi.create({
+        date,
+        meal_type: getCurrentMealType(),
+        entries: [{
+          food_id: food.food_id,
+          food_name: food.food_name,
+          category: food.category,
+          cuisine: food.cuisine,
+          serving_type: food.serving_type,
+          quantity: food.quantity,
+          weight_g: food.weight_g,
+          calories: food.calories,
+        }],
+      });
+      toast.success(`Logged ${food.food_name} — ${Math.round(food.calories)} kcal`);
+      fetchSummary();
+    } catch {
+      toast.error("Failed to log");
+    }
+  };
+
+  const handleRepeatLast = async () => {
+    const mealType = getCurrentMealType();
+    try {
+      const res = await logsApi.repeatLast(mealType);
+      const last = res.data;
+      await logsApi.create({
+        date,
+        meal_type: last.meal_type,
+        entries: last.entries,
+      });
+      toast.success(`Repeated last ${last.meal_type}`);
+      fetchSummary();
+    } catch {
+      toast.error("No previous meal to repeat");
+    }
+  };
+
   const goal = summary?.calorie_goal || user?.calorie_goal || 2000;
   const consumed = summary?.total_calories || 0;
   const remaining = Math.max(0, goal - consumed);
   const pct = goal > 0 ? Math.min((consumed / goal) * 100, 100) : 0;
+
+  // top food by calories across all entries today
+  const topFood: string | null = (() => {
+    if (!summary?.meals.length) return null;
+    let best: { name: string; cals: number } | null = null;
+    for (const meal of summary.meals) {
+      for (const entry of meal.entries) {
+        if (!best || entry.calories > best.cals) {
+          best = { name: entry.food_name, cals: entry.calories };
+        }
+      }
+    }
+    return best?.name ?? null;
+  })();
 
   const dateLabel = isToday
     ? "Today"
@@ -90,6 +191,24 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Share button — glows when user has logged data */}
+          <button
+            onClick={() => setShowShare(true)}
+            className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+            title="Share your stats (Beta)"
+            style={
+              consumed > 0
+                ? {
+                    backgroundColor: `rgba(var(--accent-rgb)/0.12)`,
+                    color: accentColor,
+                    boxShadow: `0 0 10px rgba(var(--accent-rgb)/0.25)`,
+                  }
+                : { backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)" }
+            }
+          >
+            <Share2 size={15} />
+            <span className="absolute -top-1 -right-1 text-[8px] font-bold leading-none px-1 py-px rounded-sm" style={{ backgroundColor: accentColor, color: "var(--btn-fg)" }}>β</span>
+          </button>
           <button
             onClick={() => changeDate(-1)}
             className="w-8 h-8 rounded-lg bg-bg-elevated hover:bg-bg-border flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
@@ -115,17 +234,27 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Calorie ring card */}
-        <div className="card p-5 flex flex-col items-center col-span-1">
-          <CalorieRing consumed={consumed} goal={goal} size={150} />
-          <div className="mt-4 w-full grid grid-cols-2 gap-2">
+        {/* Calorie ring card — with ambient glow */}
+        <div className="card p-5 flex flex-col items-center col-span-1 relative">
+          {/* Ambient glow blob behind the ring */}
+          <div
+            className="absolute inset-0 pointer-events-none rounded-2xl animate-ambient"
+            style={{
+              background:
+                "radial-gradient(ellipse at 50% 44%, rgba(var(--accent-rgb) / 0.14) 0%, transparent 62%)",
+            }}
+          />
+          <div className="relative z-10">
+            <CalorieRing consumed={consumed} goal={goal} size={150} />
+          </div>
+          <div className="mt-4 w-full grid grid-cols-2 gap-2 relative z-10">
             <div className="bg-bg-elevated rounded-xl p-3 text-center">
               <p className="text-xs text-text-muted mb-1">Remaining</p>
               <p
                 className="text-lg font-bold"
                 style={{ color: remaining === 0 ? "#f87171" : accentColor }}
               >
-                {Math.round(remaining)}
+                <CountUp to={Math.round(remaining)} />
               </p>
               <p className="text-xs text-text-muted">kcal</p>
             </div>
@@ -137,57 +266,128 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats cards */}
-        <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-3">
+        {/* Stats cards — spring stagger entrance, count-up numbers */}
+        <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-3 stagger-pop">
           {[
-            {
-              label: "Consumed",
-              value: Math.round(consumed),
-              unit: "kcal",
-              icon: Flame,
-              color: "#fb923c",
-            },
-            {
-              label: "Progress",
-              value: `${Math.round(pct)}%`,
-              unit: "of goal",
-              icon: Target,
-              color: accentColor,
-            },
-            {
-              label: "Meals logged",
-              value: summary?.meals.length || 0,
-              unit: "entries",
-              icon: Coffee,
-              color: "#38bdf8",
-            },
-            {
-              label: "BMR",
-              value: user?.bmr ? Math.round(user.bmr) : "—",
-              unit: "base rate",
-              icon: TrendingUp,
-              color: "#a78bfa",
-            },
+            { label: "Consumed", num: Math.round(consumed), suffix: "",  unit: "kcal",      icon: Flame,      color: "#fb923c" },
+            { label: "Progress", num: Math.round(pct),      suffix: "%", unit: "of goal",   icon: Target,     color: accentColor },
+            { label: "Meals",    num: summary?.meals.length || 0, suffix: "", unit: "entries", icon: Coffee,  color: "#38bdf8" },
+            { label: "BMR",      num: user?.bmr ? Math.round(user.bmr) : null, suffix: "", unit: "base rate", icon: TrendingUp, color: "#a78bfa" },
           ].map((stat) => (
-            <div key={stat.label} className="card p-4">
+            <div
+              key={stat.label}
+              className="card p-4 transition-all duration-300 hover:-translate-y-0.5"
+              style={{ willChange: "transform" }}
+            >
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs text-text-muted">{stat.label}</p>
                 <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: stat.color + "20" }}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-transform duration-200 hover:scale-110"
+                  style={{ backgroundColor: stat.color + "22" }}
                 >
                   <stat.icon size={13} style={{ color: stat.color }} />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
+              <p className="text-2xl font-bold text-text-primary">
+                {stat.num !== null
+                  ? <><CountUp to={stat.num} />{stat.suffix}</>
+                  : "—"}
+              </p>
               <p className="text-xs text-text-muted mt-0.5">{stat.unit}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Meal sections */}
-      <div className="space-y-3 mb-20 md:mb-0">
+      {/* Recovery Mode Banner — context-aware */}
+      {dayStatus?.recovery_day && (() => {
+        const ctxInfo = dayStatus.yesterday_context
+          ? MEAL_CONTEXTS.find(c => c.value === dayStatus.yesterday_context)
+          : null;
+        const ctxPhrase = ctxInfo
+          ? ` — mostly from ${ctxInfo.emoji} ${ctxInfo.label.toLowerCase()} eating`
+          : "";
+        const suggestion = ctxInfo && ctxInfo.value !== "home"
+          ? "A quiet home-cooked meal today rebalances it."
+          : "Lighter portions today will rebalance it.";
+        return (
+          <div className="mb-4 card p-3 flex items-center gap-3" style={{ borderColor: "#fb923c30", backgroundColor: "#fb923c08" }}>
+            <span className="text-xl animate-float" style={{ display: "inline-block" }}>🌱</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium" style={{ color: "#fb923c" }}>Recovery Day</p>
+              <p className="text-xs text-text-muted">
+                You ate {dayStatus.yesterday_calories} kcal yesterday (+{dayStatus.surplus_pct}%){ctxPhrase}. {suggestion}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Quick Add */}
+      {(frequentFoods.length > 0 || true) && (
+        <div className="mb-4">
+          <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Quick Add</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {frequentFoods.map((food) => (
+              <button
+                key={food.food_id}
+                onClick={() => quickLog(food)}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-bg-elevated hover:bg-bg-border rounded-xl text-xs transition-all border border-bg-border"
+              >
+                <span className="text-text-primary font-medium max-w-[90px] truncate">{food.food_name}</span>
+                <span className="text-text-muted">·</span>
+                <span className="text-accent-primary whitespace-nowrap">{Math.round(food.calories)} kcal</span>
+              </button>
+            ))}
+            <button
+              onClick={handleRepeatLast}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-bg-elevated hover:bg-bg-border rounded-xl text-xs transition-all border border-bg-border text-text-secondary hover:text-text-primary"
+            >
+              <RotateCcw size={12} />
+              <span>Repeat last</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Environment Insight Card — shown once user has data across ≥2 contexts */}
+      {(() => {
+        const eligible = contextStats.filter(s => s.count >= 3);
+        if (eligible.length < 2) return null;
+        const riskiest = eligible.reduce((a, b) => a.over_goal_pct > b.over_goal_pct ? a : b);
+        const safest = eligible.reduce((a, b) => a.over_goal_pct < b.over_goal_pct ? a : b);
+        if (riskiest.context === safest.context) return null;
+        const rInfo = MEAL_CONTEXTS.find(c => c.value === riskiest.context);
+        const sInfo = MEAL_CONTEXTS.find(c => c.value === safest.context);
+        return (
+          <div className="mb-4 card p-4">
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">📍 Your environment patterns</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-bg-elevated rounded-xl p-3">
+                <p className="text-[10px] text-text-muted mb-1">Riskiest spot</p>
+                <p className="text-xs font-semibold" style={{ color: "#fb923c" }}>
+                  {rInfo?.emoji ?? "🍽️"} {rInfo?.label ?? riskiest.context}
+                </p>
+                <p className="text-[10px] text-text-muted mt-0.5">
+                  avg {riskiest.avg_calories} kcal · {riskiest.over_goal_pct}% days over goal
+                </p>
+              </div>
+              <div className="bg-bg-elevated rounded-xl p-3">
+                <p className="text-[10px] text-text-muted mb-1">Best spot</p>
+                <p className="text-xs font-semibold" style={{ color: "#34d399" }}>
+                  {sInfo?.emoji ?? "🏠"} {sInfo?.label ?? safest.context}
+                </p>
+                <p className="text-[10px] text-text-muted mt-0.5">
+                  avg {safest.avg_calories} kcal · on track {100 - safest.over_goal_pct}% of days
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Meal sections — stagger entrance */}
+      <div className="space-y-3 mb-20 md:mb-0 stagger">
         {MEAL_TYPES.map((mt) => {
           const logs =
             summary?.meals.filter((m) => m.meal_type === mt.value) || [];
@@ -289,6 +489,13 @@ export default function Dashboard() {
           onLogged={fetchSummary}
           defaultMealType={activeMealType}
           defaultDate={date}
+        />
+      )}
+
+      {showShare && (
+        <ShareModal
+          data={{ consumed, goal, meals: summary?.meals.length ?? 0, topFood }}
+          onClose={() => setShowShare(false)}
         />
       )}
     </div>

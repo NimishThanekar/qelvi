@@ -95,6 +95,7 @@ class MealLogCreate(BaseModel):
     meal_type: str
     entries: List[MealEntry]
     notes: Optional[str] = None
+    context: Optional[str] = None  # home/office/restaurant/street_food/travel/party/late_night
 
 
 class MealLogResponse(BaseModel):
@@ -105,6 +106,7 @@ class MealLogResponse(BaseModel):
     entries: List[MealEntry]
     total_calories: float
     notes: Optional[str] = None
+    context: Optional[str] = None
     created_at: datetime
 
 
@@ -114,3 +116,29 @@ class DailySummary(BaseModel):
     calorie_goal: Optional[int]
     meals: List[dict]
     meal_breakdown: dict
+
+
+# Meal Templates
+class MealTemplateCreate(BaseModel):
+    name: str
+    meal_type: str
+    entries: List[MealEntry]
+
+
+# Groups
+class GroupCreate(BaseModel):
+    name: str
+
+
+class GroupMember(BaseModel):
+    user_id: str
+    name: str
+    checked_in_today: bool
+    is_me: bool
+
+
+class GroupResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    members: List[GroupMember]

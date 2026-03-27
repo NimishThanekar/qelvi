@@ -6,6 +6,7 @@ import {
   UtensilsCrossed,
   BarChart3,
   User,
+  Users,
   LogOut,
   Menu,
   X,
@@ -18,6 +19,7 @@ const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/log", icon: UtensilsCrossed, label: "Log Meal" },
   { to: "/history", icon: BarChart3, label: "History" },
+  { to: "/groups", icon: Users, label: "Circles" },
   { to: "/profile", icon: User, label: "Profile" },
 ];
 
