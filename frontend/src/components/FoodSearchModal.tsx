@@ -193,8 +193,8 @@ export default function FoodSearchModal({
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: search list */}
-          <div className="flex flex-col flex-1 overflow-hidden border-r border-bg-elevated">
+          {/* Left: search list — hidden on mobile when a food is selected */}
+          <div className={`flex-col flex-1 overflow-hidden border-r border-bg-elevated ${selected ? "hidden md:flex" : "flex"}`}>
             {/* Search */}
             <div className="p-4 space-y-2">
               <div className="relative">
@@ -286,11 +286,17 @@ export default function FoodSearchModal({
             </div>
           </div>
 
-          {/* Right: serving config */}
-          <div className="w-56 flex-shrink-0 flex flex-col p-4 gap-4">
+          {/* Right: serving config — full width on mobile when selected */}
+          <div className={`flex-shrink-0 flex flex-col p-4 gap-4 ${selected ? "flex w-full md:w-56" : "hidden md:flex md:w-56"}`}>
             {selected ? (
               <>
                 <div>
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="md:hidden flex items-center gap-1 text-xs text-text-muted hover:text-text-primary mb-2 transition-colors"
+                  >
+                    ← Back to results
+                  </button>
                   <p className="text-sm font-semibold text-text-primary leading-snug">
                     {selected.item}
                   </p>
