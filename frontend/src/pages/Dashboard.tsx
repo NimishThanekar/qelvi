@@ -215,11 +215,11 @@ export default function Dashboard() {
                     setActiveMealType(mt.value);
                     setShowModal(true);
                   }}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:text-black"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all"
                   style={{ backgroundColor: mt.color + "15", color: mt.color }}
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLElement).style.backgroundColor = mt.color;
-                    (e.currentTarget as HTMLElement).style.color = "#000";
+                    (e.currentTarget as HTMLElement).style.color = "var(--btn-fg)";
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLElement).style.backgroundColor = mt.color + "15";
@@ -280,7 +280,7 @@ export default function Dashboard() {
         onClick={() => setShowModal(true)}
         className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-accent-primary rounded-full flex items-center justify-center shadow-lg shadow-accent-primary/20 hover:bg-accent-soft transition-colors z-20"
       >
-        <Plus size={22} className="text-black" />
+        <Plus size={22} className="text-btn-fg" />
       </button>
 
       {showModal && (

@@ -96,7 +96,7 @@ export default function Register() {
         {/* Logo */}
         <div className="flex items-center gap-2.5 mb-8 justify-center">
           <div className="w-9 h-9 bg-accent-primary rounded-xl flex items-center justify-center">
-            <Flame size={18} className="text-black" />
+            <Flame size={18} className="text-btn-fg" />
           </div>
           <span className="text-xl font-semibold text-text-primary tracking-tight">
             Qelvi
@@ -119,7 +119,7 @@ export default function Register() {
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                     step === s.num
-                      ? "bg-accent-primary text-black"
+                      ? "bg-accent-primary text-btn-fg"
                       : step > s.num
                       ? "bg-bg-border text-text-secondary"
                       : "bg-bg-elevated text-text-muted"

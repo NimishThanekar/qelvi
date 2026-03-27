@@ -10,9 +10,10 @@ async def list_foods(
     q: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     cuisine: Optional[str] = Query(None),
+    meal_type: Optional[str] = Query(None),
     limit: int = Query(50, le=200),
 ):
-    return await search_foods(query=q or "", category=category or "", cuisine=cuisine or "", limit=limit)
+    return await search_foods(query=q or "", category=category or "", cuisine=cuisine or "", meal_type=meal_type or "", limit=limit)
 
 
 @router.get("/categories")

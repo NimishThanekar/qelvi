@@ -34,7 +34,7 @@ export const authApi = {
 
 // Foods
 export const foodApi = {
-  search: (params: { q?: string; category?: string; cuisine?: string; limit?: number }) =>
+  search: (params: { q?: string; category?: string; cuisine?: string; meal_type?: string; limit?: number }) =>
     api.get('/foods/', { params }),
   categories: () => api.get('/foods/categories'),
   cuisines: () => api.get('/foods/cuisines'),

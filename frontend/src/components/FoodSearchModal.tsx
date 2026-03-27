@@ -12,7 +12,7 @@ interface Props {
   defaultDate?: string;
 }
 
-type ServingType = "scoop" | "bowl" | "restaurant" | "custom";
+type ServingType = "scoop" | "bowl" | "restaurant" | "piece" | "custom";
 
 export default function FoodSearchModal({
   onClose,
@@ -37,13 +37,13 @@ export default function FoodSearchModal({
 
   useEffect(() => {
     foodApi.categories().then((r) => setCategories(r.data));
-    searchFoods("");
+    searchFoods("", "", mealType);
   }, []);
 
-  const searchFoods = useCallback(async (q: string, cat = "") => {
+  const searchFoods = useCallback(async (q: string, cat = "", mt = "") => {
     setSearching(true);
     try {
-      const res = await foodApi.search({ q, category: cat, limit: 40 });
+      const res = await foodApi.search({ q, category: cat, meal_type: mt, limit: 40 });
       setFoods(res.data);
     } finally {
       setSearching(false);
@@ -51,9 +51,9 @@ export default function FoodSearchModal({
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => searchFoods(query, category), 250);
+    const t = setTimeout(() => searchFoods(query, category, mealType), 250);
     return () => clearTimeout(t);
-  }, [query, category]);
+  }, [query, category, mealType]);
 
   const getCalories = () => {
     if (!selected) return 0;
@@ -61,6 +61,7 @@ export default function FoodSearchModal({
       return ((selected.kcal_per_100g * customGrams) / 100) * quantity;
     if (serving === "scoop") return (selected.kcal_per_scoop || 0) * quantity;
     if (serving === "bowl") return (selected.kcal_per_bowl || 0) * quantity;
+    if (serving === "piece") return (selected.kcal_per_piece || 0) * quantity;
     if (serving === "restaurant")
       return (selected.kcal_per_restaurant_serving || 0) * quantity;
     return 0;
@@ -71,6 +72,7 @@ export default function FoodSearchModal({
     if (serving === "custom") return customGrams * quantity;
     if (serving === "scoop") return (selected.scoop_g || 0) * quantity;
     if (serving === "bowl") return (selected.bowl_g || 0) * quantity;
+    if (serving === "piece") return (selected.piece_g || 0) * quantity;
     if (serving === "restaurant")
       return (selected.restaurant_g || 0) * quantity;
     return 0;
@@ -84,6 +86,13 @@ export default function FoodSearchModal({
     kcal?: number;
   }[] = selected
     ? [
+        {
+          value: "piece",
+          label: "Piece",
+          available: !!selected.piece_g,
+          grams: selected.piece_g,
+          kcal: selected.kcal_per_piece,
+        },
         {
           value: "scoop",
           label: "Scoop",
@@ -232,7 +241,9 @@ export default function FoodSearchModal({
                       key={food.id}
                       onClick={() => {
                         setSelected(food);
-                        const firstAvail = food.bowl_g
+                        const firstAvail = food.piece_g
+                          ? "piece"
+                          : food.bowl_g
                           ? "bowl"
                           : food.scoop_g
                           ? "scoop"
@@ -249,12 +260,12 @@ export default function FoodSearchModal({
                       }`}
                     >
                       <img
-                        src={getCategoryImage(food.category)}
+                        src={food.food_image_url || getCategoryImage(food.category)}
                         alt={food.item}
                         className="w-10 h-10 rounded-lg object-cover flex-shrink-0 opacity-80"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src =
-                            "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=80&q=70";
+                            getCategoryImage(food.category);
                         }}
                       />
                       <div className="min-w-0 flex-1">

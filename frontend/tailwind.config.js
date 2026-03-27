@@ -9,6 +9,7 @@ export default {
         mono: ["'JetBrains Mono'", "monospace"],
       },
       colors: {
+        'btn-fg': "var(--btn-fg)",
         bg: {
           DEFAULT: "var(--bg)",
           card: "var(--bg-card)",

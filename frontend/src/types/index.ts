@@ -7,9 +7,14 @@ export interface FoodItem {
   scoop_g?: number;
   bowl_g?: number;
   restaurant_g?: number;
+  piece_g?: number;
   kcal_per_scoop?: number;
   kcal_per_bowl?: number;
   kcal_per_restaurant_serving?: number;
+  kcal_per_piece?: number;
+  meal_category?: string;
+  meal_tags?: string[];
+  food_image_url?: string;
 }
 
 export interface MealEntry {
@@ -17,7 +22,7 @@ export interface MealEntry {
   food_name: string;
   category: string;
   cuisine: string;
-  serving_type: 'scoop' | 'bowl' | 'restaurant' | 'custom';
+  serving_type: 'scoop' | 'bowl' | 'restaurant' | 'piece' | 'custom';
   quantity: number;
   weight_g: number;
   calories: number;

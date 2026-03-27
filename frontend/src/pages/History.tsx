@@ -109,7 +109,7 @@ export default function History() {
               onClick={() => setRange(r)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 range === r
-                  ? "bg-accent-primary text-black"
+                  ? "bg-accent-primary text-btn-fg"
                   : "text-text-muted hover:text-text-primary"
               }`}
             >

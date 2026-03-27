@@ -37,7 +37,7 @@ export default function Login() {
         {/* Logo */}
         <div className="flex items-center gap-2.5 mb-10 justify-center">
           <div className="w-9 h-9 bg-accent-primary rounded-xl flex items-center justify-center">
-            <Flame size={18} className="text-black" />
+            <Flame size={18} className="text-btn-fg" />
           </div>
           <span className="text-xl font-semibold text-text-primary tracking-tight">
             Qelvi

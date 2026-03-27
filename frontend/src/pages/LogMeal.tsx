@@ -10,15 +10,15 @@ export default function LogMeal() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <h1 className="text-xl font-semibold text-zinc-100 mb-1">Log a Meal</h1>
-      <p className="text-xs text-zinc-600 mb-8">Choose a meal type and search for food items</p>
+      <h1 className="text-xl font-semibold text-text-primary mb-1">Log a Meal</h1>
+      <p className="text-xs text-text-muted mb-8">Choose a meal type and search for food items</p>
 
       <div className="grid grid-cols-1 gap-3 mb-8">
         {MEAL_TYPES.map(mt => (
           <button
             key={mt.value}
             onClick={() => { setMealType(mt.value); setShowModal(true); }}
-            className="card flex items-center gap-4 p-4 text-left hover:border-zinc-700 transition-all group"
+            className="card flex items-center gap-4 p-4 text-left hover:border-bg-border transition-all group"
           >
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
@@ -27,8 +27,8 @@ export default function LogMeal() {
               {mt.emoji}
             </div>
             <div className="flex-1">
-              <p className="font-medium text-zinc-200">{mt.label}</p>
-              <p className="text-xs text-zinc-600 mt-0.5">
+              <p className="font-medium text-text-primary">{mt.label}</p>
+              <p className="text-xs text-text-muted mt-0.5">
                 {mt.value === 'breakfast' && 'Start your day right'}
                 {mt.value === 'lunch' && 'Midday fuel'}
                 {mt.value === 'dinner' && 'Evening meal'}
