@@ -130,11 +130,32 @@ class GroupCreate(BaseModel):
     name: str
 
 
+class CheckinRequest(BaseModel):
+    mood: Optional[str] = None  # easy | busy | travel | sick | craving | momentum
+
+
+class GroupSettingsUpdate(BaseModel):
+    reset_time: Optional[str] = None   # "HH:MM"
+    reset_timezone: Optional[str] = None
+
+
+class SetAnchorRequest(BaseModel):
+    anchor_user_id: Optional[str] = None  # None to unset
+
+
+class RegenerateCodeRequest(BaseModel):
+    expires_in: Optional[str] = None  # "24h" | "7d" | None (never)
+
+
 class GroupMember(BaseModel):
     user_id: str
     name: str
     checked_in_today: bool
     is_me: bool
+    mood: Optional[str] = None
+    missed_days: int = 0
+    anchor_user_id: Optional[str] = None
+    anchor_missing: bool = False
 
 
 class GroupResponse(BaseModel):
@@ -142,3 +163,17 @@ class GroupResponse(BaseModel):
     name: str
     code: str
     members: List[GroupMember]
+    reset_time: str = "23:00"
+    reset_timezone: str = "Asia/Kolkata"
+    code_expires_at: Optional[str] = None
+    is_creator: bool = False
+    anchor_pairs: dict = {}
+
+
+class WeeklyRecapResponse(BaseModel):
+    group_id: str
+    group_name: str
+    checkin_days: int
+    total_possible: int
+    best_streak: int
+    vs_last_week: int

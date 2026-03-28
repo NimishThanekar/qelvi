@@ -210,14 +210,14 @@ export default function FoodSearchModal({
         </div>
 
         {/* Meal type + date row */}
-        <div className="px-5 py-3 flex gap-3 border-b border-bg-elevated overflow-x-auto">
+        <div className="px-5 py-2.5 flex flex-wrap items-center gap-2 border-b border-bg-elevated">
           {MEAL_TYPES.map((m) => (
             <button
               key={m.value}
               onClick={() => setMealType(m.value)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                 mealType === m.value
-                  ? "text-black font-semibold"
+                  ? "text-black"
                   : "bg-bg-elevated text-text-secondary hover:text-text-primary"
               }`}
               style={mealType === m.value ? { backgroundColor: m.color } : {}}
@@ -328,144 +328,150 @@ export default function FoodSearchModal({
           </div>
 
           {/* Right: serving config — full width on mobile when selected */}
-          <div className={`flex-shrink-0 flex flex-col p-4 gap-4 ${selected ? "flex w-full md:w-56" : "hidden md:flex md:w-56"}`}>
+          <div className={`flex-shrink-0 flex flex-col overflow-hidden ${selected ? "flex w-full md:w-56" : "hidden md:flex md:w-56"}`}>
             {selected ? (
               <>
-                <div>
-                  <button
-                    onClick={() => setSelected(null)}
-                    className="md:hidden flex items-center gap-1 text-xs text-text-muted hover:text-text-primary mb-2 transition-colors"
-                  >
-                    ← Back to results
-                  </button>
-                  <p className="text-sm font-semibold text-text-primary leading-snug">
-                    {selected.item}
-                  </p>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    {selected.cuisine}
-                  </p>
-                </div>
+                {/* Scrollable content — never clips the pinned button */}
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                  <div>
+                    <button
+                      onClick={() => setSelected(null)}
+                      className="md:hidden flex items-center gap-1 text-xs text-text-muted hover:text-text-primary mb-2 transition-colors"
+                    >
+                      ← Back to results
+                    </button>
+                    <p className="text-sm font-semibold text-text-primary leading-snug">
+                      {selected.item}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {selected.cuisine}
+                    </p>
+                  </div>
 
-                {/* Serving type */}
-                <div>
-                  <label className="label">Serving size</label>
-                  <div className="space-y-1.5">
-                    {servingOptions
-                      .filter((s) => s.available)
-                      .map((opt) => (
+                  {/* Serving type */}
+                  <div>
+                    <label className="label">Serving size</label>
+                    <div className="space-y-1.5">
+                      {servingOptions
+                        .filter((s) => s.available)
+                        .map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setServing(opt.value)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all ${
+                              serving === opt.value
+                                ? "bg-accent-primary/10 border border-accent-primary/30 text-accent-soft"
+                                : "bg-bg-elevated border border-transparent text-text-secondary hover:text-text-primary"
+                            }`}
+                          >
+                            <span>{opt.label}</span>
+                            {opt.grams && (
+                              <span className="text-text-muted">{opt.grams}g</span>
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {serving === "custom" && (
+                    <div>
+                      <label className="label">Grams</label>
+                      <input
+                        type="number"
+                        className="input text-sm"
+                        value={customGrams}
+                        onChange={(e) => setCustomGrams(Number(e.target.value))}
+                        min={1}
+                      />
+                    </div>
+                  )}
+
+                  {/* Quantity */}
+                  <div>
+                    <label className="label">Quantity</label>
+                    <div className="flex gap-1.5 mb-2">
+                      {[0.5, 1, 1.5, 2].map((mult) => (
                         <button
-                          key={opt.value}
-                          onClick={() => setServing(opt.value)}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all ${
-                            serving === opt.value
-                              ? "bg-accent-primary/10 border border-accent-primary/30 text-accent-soft"
-                              : "bg-bg-elevated border border-transparent text-text-secondary hover:text-text-primary"
+                          key={mult}
+                          onClick={() => setQuantity(mult)}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            quantity === mult
+                              ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
+                              : "bg-bg-elevated text-text-secondary hover:text-text-primary border border-transparent"
                           }`}
                         >
-                          <span>{opt.label}</span>
-                          {opt.grams && (
-                            <span className="text-text-muted">{opt.grams}g</span>
-                          )}
+                          {mult}x
                         </button>
                       ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setQuantity(Math.max(0.5, quantity - 0.5))}
+                        className="w-8 h-8 rounded-lg bg-bg-elevated hover:bg-bg-border flex items-center justify-center text-text-secondary transition-colors"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="flex-1 text-center text-sm font-medium text-text-primary">
+                        {quantity}
+                      </span>
+                      <button
+                        onClick={() => setQuantity(quantity + 0.5)}
+                        className="w-8 h-8 rounded-lg bg-bg-elevated hover:bg-bg-border flex items-center justify-center text-text-secondary transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {serving === "custom" && (
+                  {/* Context */}
                   <div>
-                    <label className="label">Grams</label>
-                    <input
-                      type="number"
-                      className="input text-sm"
-                      value={customGrams}
-                      onChange={(e) => setCustomGrams(Number(e.target.value))}
-                      min={1}
-                    />
+                    <label className="label">Where are you eating?</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {MEAL_CONTEXTS.map((ctx) => (
+                        <button
+                          key={ctx.value}
+                          onClick={() => setContext(context === ctx.value ? null : ctx.value)}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-all ${
+                            context === ctx.value
+                              ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
+                              : "bg-bg-elevated text-text-secondary hover:text-text-primary border border-transparent"
+                          }`}
+                        >
+                          <span>{ctx.emoji}</span>
+                          <span>{ctx.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {/* Live context intelligence warning */}
+                    {context && contextStatsMap[context] && contextStatsMap[context].count >= 3 && (
+                      <ContextInsight stat={contextStatsMap[context]} />
+                    )}
                   </div>
-                )}
 
-                {/* Quantity */}
-                <div>
-                  <label className="label">Quantity</label>
-                  <div className="flex gap-1.5 mb-2">
-                    {[0.5, 1, 1.5, 2].map((mult) => (
-                      <button
-                        key={mult}
-                        onClick={() => setQuantity(mult)}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          quantity === mult
-                            ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
-                            : "bg-bg-elevated text-text-secondary hover:text-text-primary border border-transparent"
-                        }`}
-                      >
-                        {mult}x
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setQuantity(Math.max(0.5, quantity - 0.5))}
-                      className="w-8 h-8 rounded-lg bg-bg-elevated hover:bg-bg-border flex items-center justify-center text-text-secondary transition-colors"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <span className="flex-1 text-center text-sm font-medium text-text-primary">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={() => setQuantity(quantity + 0.5)}
-                      className="w-8 h-8 rounded-lg bg-bg-elevated hover:bg-bg-border flex items-center justify-center text-text-secondary transition-colors"
-                    >
-                      <Plus size={14} />
-                    </button>
+                  {/* Calorie preview */}
+                  <div className="bg-bg-elevated rounded-xl p-3">
+                    <div className="flex justify-between text-xs text-text-muted mb-1">
+                      <span>Calories</span>
+                      <span>{getWeight()}g total</span>
+                    </div>
+                    <p className="text-2xl font-bold text-accent-primary">
+                      {Math.round(getCalories())}
+                    </p>
+                    <p className="text-xs text-text-muted">kcal</p>
                   </div>
                 </div>
 
-                {/* Context */}
-                <div>
-                  <label className="label">Where are you eating?</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {MEAL_CONTEXTS.map((ctx) => (
-                      <button
-                        key={ctx.value}
-                        onClick={() => setContext(context === ctx.value ? null : ctx.value)}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-all ${
-                          context === ctx.value
-                            ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
-                            : "bg-bg-elevated text-text-secondary hover:text-text-primary border border-transparent"
-                        }`}
-                      >
-                        <span>{ctx.emoji}</span>
-                        <span>{ctx.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {/* Live context intelligence warning */}
-                  {context && contextStatsMap[context] && contextStatsMap[context].count >= 3 && (
-                    <ContextInsight stat={contextStatsMap[context]} />
-                  )}
+                {/* Pinned footer — always visible regardless of scroll position */}
+                <div className="px-4 pb-4 pt-2 border-t border-bg-elevated flex-shrink-0">
+                  <button
+                    onClick={handleLog}
+                    disabled={loading || getCalories() === 0}
+                    className="btn-primary w-full flex items-center justify-center gap-2"
+                  >
+                    <Plus size={15} />
+                    {loading ? "Logging..." : "Add to log"}
+                  </button>
                 </div>
-
-                {/* Calorie preview */}
-                <div className="mt-auto bg-bg-elevated rounded-xl p-3">
-                  <div className="flex justify-between text-xs text-text-muted mb-1">
-                    <span>Calories</span>
-                    <span>{getWeight()}g total</span>
-                  </div>
-                  <p className="text-2xl font-bold text-accent-primary">
-                    {Math.round(getCalories())}
-                  </p>
-                  <p className="text-xs text-text-muted">kcal</p>
-                </div>
-
-                <button
-                  onClick={handleLog}
-                  disabled={loading || getCalories() === 0}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
-                >
-                  <Plus size={15} />
-                  {loading ? "Logging..." : "Add to log"}
-                </button>
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center text-center">

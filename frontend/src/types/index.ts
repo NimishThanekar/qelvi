@@ -57,11 +57,29 @@ export interface MealTemplate {
   created_at: string;
 }
 
+export type MoodKey = "easy" | "busy" | "travel" | "sick" | "craving" | "momentum";
+
+export const MOODS: Record<MoodKey, { emoji: string; label: string; color: string }> = {
+  easy:     { emoji: "☀️", label: "Easy day",      color: "#fbbf24" },
+  busy:     { emoji: "⚡", label: "Busy",           color: "#fb923c" },
+  travel:   { emoji: "✈️", label: "Travel",         color: "#38bdf8" },
+  sick:     { emoji: "🤒", label: "Sick",           color: "#94a3b8" },
+  craving:  { emoji: "🌊", label: "Craving-heavy", color: "#f87171" },
+  momentum: { emoji: "🔥", label: "Good momentum", color: "#4ade80" },
+};
+
+export const MOOD_LIST = (Object.entries(MOODS) as [MoodKey, { emoji: string; label: string; color: string }][])
+  .map(([key, v]) => ({ key, ...v }));
+
 export interface GroupMember {
   user_id: string;
   name: string;
   checked_in_today: boolean;
   is_me: boolean;
+  mood?: MoodKey | null;
+  missed_days: number;
+  anchor_user_id?: string | null;
+  anchor_missing?: boolean;
 }
 
 export interface Group {
@@ -69,6 +87,20 @@ export interface Group {
   name: string;
   code: string;
   members: GroupMember[];
+  reset_time: string;
+  reset_timezone: string;
+  code_expires_at?: string | null;
+  is_creator: boolean;
+  anchor_pairs: Record<string, string>;
+}
+
+export interface WeeklyRecap {
+  group_id: string;
+  group_name: string;
+  checkin_days: number;
+  total_possible: number;
+  best_streak: number;
+  vs_last_week: number;
 }
 
 export interface DayStatus {

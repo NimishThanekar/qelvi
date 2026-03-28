@@ -61,8 +61,13 @@ export const logsApi = {
 
 // Groups
 export const groupsApi = {
-  create: (name: string) => api.post('/groups/create', { name }),
-  join: (code: string) => api.post(`/groups/join/${code}`),
-  checkin: (groupId: string) => api.post(`/groups/checkin/${groupId}`),
-  my: () => api.get('/groups/my'),
+  create:           (name: string) => api.post('/groups/create', { name }),
+  join:             (code: string) => api.post(`/groups/join/${code}`),
+  checkin:          (groupId: string, mood?: string | null) => api.post(`/groups/checkin/${groupId}`, { mood: mood ?? null }),
+  setMood:          (groupId: string, mood: string) => api.post(`/groups/checkin/${groupId}/mood`, { mood }),
+  my:               () => api.get('/groups/my'),
+  updateSettings:   (groupId: string, data: { reset_time?: string; reset_timezone?: string }) => api.put(`/groups/${groupId}/settings`, data),
+  setAnchor:        (groupId: string, anchor_user_id: string | null) => api.post(`/groups/${groupId}/anchor`, { anchor_user_id }),
+  regenerateCode:   (groupId: string, expires_in?: string) => api.post(`/groups/${groupId}/regenerate-code`, { expires_in: expires_in ?? null }),
+  weeklyRecap:      (groupId: string) => api.get(`/groups/${groupId}/recap`),
 };

@@ -13,7 +13,6 @@ import {
   Palette,
 } from "lucide-react";
 import { useState } from "react";
-import Logo from "../assets/qelvilogo.png";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -37,12 +36,17 @@ export default function Layout() {
   const NavContent = () => (
     <>
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-2 mb-10">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${theme === "paper" ? "bg-bg-elevated border border-bg-border" : "bg-accent-primary"}`}>
-          <img src={Logo} className="w-full h-full object-contain" />
-        </div>
-        <span className="font-semibold text-text-primary tracking-tight">
-          Qelvi
+      <div className="px-2 mb-10">
+        <span
+          style={{
+            fontFamily: "'Syne', 'DM Sans', sans-serif",
+            fontWeight: 800,
+            letterSpacing: "0.32em",
+            fontSize: 15,
+          }}
+          className="text-accent-primary uppercase"
+        >
+          QELVI
         </span>
       </div>
 
@@ -160,12 +164,17 @@ export default function Layout() {
 
       {/* Mobile top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 h-14 bg-bg border-b border-bg-border">
-        <div className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === "paper" ? "bg-bg-elevated border border-bg-border" : "bg-accent-primary"}`}>
-            <img src={Logo} className="w-4 h-4 object-contain" />
-          </div>
-          <span className="font-semibold text-sm text-text-primary">Qelvi</span>
-        </div>
+        <span
+          style={{
+            fontFamily: "'Syne', 'DM Sans', sans-serif",
+            fontWeight: 800,
+            letterSpacing: "0.32em",
+            fontSize: 14,
+          }}
+          className="text-accent-primary uppercase"
+        >
+          QELVI
+        </span>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="text-text-secondary p-1"
