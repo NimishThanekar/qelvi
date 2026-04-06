@@ -79,6 +79,15 @@ export const aiApi = {
     api.post('/ai/estimate', { text, meal_type }),
 };
 
+// Admin / Notifications
+export const adminApi = {
+  pushStats: () => api.get('/notifications/stats'),
+  broadcast: (data: { title: string; body: string; url: string; user_id?: string }) =>
+    api.post('/notifications/broadcast', data),
+  triggerReminders: (secret: string) =>
+    api.post(`/notifications/send-reminders?secret=${encodeURIComponent(secret)}`),
+};
+
 // Custom Foods (user-exclusive)
 export const customFoodsApi = {
   list: (q?: string) => api.get('/custom-foods/', { params: q ? { q } : {} }),

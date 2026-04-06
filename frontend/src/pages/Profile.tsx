@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
-import { User, Target, Activity, Utensils, Scale, Save } from "lucide-react";
+import { User, Target, Activity, Utensils, Scale, Save, Bell, BellOff } from "lucide-react";
 import toast from "react-hot-toast";
+import { setupPushNotifications, unsubscribePush } from "../lib/push";
 
 const DIETARY_PREFS = [
   "Vegetarian",
@@ -28,6 +29,20 @@ const ACTIVITY_LEVELS = [
 export default function Profile() {
   const { user, updateUser } = useAuthStore();
   const [saving, setSaving] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | null>(null);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+    setPushPermission(Notification.permission);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.pushManager.getSubscription())
+        .then((sub) => setPushSubscribed(!!sub))
+        .catch(() => {});
+    }
+  }, []);
   const [form, setForm] = useState({
     name: user?.name || "",
     age: user?.age?.toString() || "",
@@ -48,6 +63,33 @@ export default function Profile() {
         ? form.dietary_preferences.filter((p: string) => p !== pref)
         : [...form.dietary_preferences, pref]
     );
+  };
+
+  const handleEnablePush = async () => {
+    setPushLoading(true);
+    const success = await setupPushNotifications();
+    if (success) {
+      setPushSubscribed(true);
+      setPushPermission("granted");
+      toast.success("Notifications enabled");
+    } else {
+      const current = 'Notification' in window ? Notification.permission : 'denied';
+      setPushPermission(current as NotificationPermission);
+      if (current === "denied") {
+        toast.error("Notifications are blocked — enable them in your browser settings");
+      } else {
+        toast.error("Could not enable notifications. Try again after installing the app.");
+      }
+    }
+    setPushLoading(false);
+  };
+
+  const handleDisablePush = async () => {
+    setPushLoading(true);
+    await unsubscribePush();
+    setPushSubscribed(false);
+    toast.success("Notifications disabled");
+    setPushLoading(false);
   };
 
   const handleSave = async () => {
@@ -278,6 +320,48 @@ export default function Profile() {
             })}
           </div>
         </div>
+
+        {/* Push notifications */}
+        {'Notification' in window && (
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Bell size={15} className="text-text-muted" />
+              <h3 className="text-sm font-medium text-text-secondary">Push notifications</h3>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                {pushPermission === "denied" ? (
+                  <p className="text-xs text-red-400">Blocked in browser settings</p>
+                ) : pushSubscribed ? (
+                  <p className="text-xs text-text-muted">Reminders and updates are enabled</p>
+                ) : (
+                  <p className="text-xs text-text-muted">Get meal reminders and streak alerts</p>
+                )}
+              </div>
+              {pushPermission !== "denied" && (
+                pushSubscribed ? (
+                  <button
+                    onClick={handleDisablePush}
+                    disabled={pushLoading}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-bg-border text-text-muted hover:text-red-400 hover:border-red-400/30 transition-all"
+                  >
+                    <BellOff size={12} />
+                    {pushLoading ? "..." : "Disable"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleEnablePush}
+                    disabled={pushLoading}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-accent-primary/10 border border-accent-primary/20 text-accent-primary hover:bg-accent-primary/20 transition-all"
+                  >
+                    <Bell size={12} />
+                    {pushLoading ? "..." : "Enable"}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Save */}
         <button

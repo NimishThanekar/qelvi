@@ -20,14 +20,70 @@ Set REMINDER_SECRET in .env to protect the endpoint from abuse.
 import logging
 import os
 from datetime import date, timedelta, datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
+from pydantic import BaseModel
 from app.database import get_db
+from app.routers.auth import get_admin_user
 from app.services.notifications import send_push
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+# ── Admin broadcast ───────────────────────────────────────────────────────────
+
+class BroadcastRequest(BaseModel):
+    title: str
+    body: str
+    url: str = "/dashboard"
+    user_id: Optional[str] = None  # None = send to all subscribers
+
+
+@router.post("/broadcast")
+async def broadcast(data: BroadcastRequest, _admin=Depends(get_admin_user)):
+    """
+    Admin-only: send a custom push notification to all subscribed users,
+    or to a single user when user_id is provided.
+    """
+    from bson import ObjectId
+    db = get_db()
+
+    if data.user_id:
+        users = await db.users.find(
+            {"_id": ObjectId(data.user_id), "push_subscription": {"$exists": True, "$ne": None}}
+        ).to_list(1)
+    else:
+        users = await db.users.find(
+            {"push_subscription": {"$exists": True, "$ne": None}}
+        ).to_list(5000)
+
+    sent = errors = 0
+    for user in users:
+        sub = user.get("push_subscription")
+        if not sub:
+            continue
+        ok = await send_push(sub, data.title, data.body, data.url)
+        if ok:
+            sent += 1
+        else:
+            errors += 1
+            await db.users.update_one({"_id": user["_id"]}, {"$unset": {"push_subscription": ""}})
+
+    return {"sent": sent, "errors": errors}
+
+
+@router.get("/stats")
+async def push_stats(_admin=Depends(get_admin_user)):
+    """Admin-only: count of users with push subscriptions."""
+    db = get_db()
+    total_users = await db.users.count_documents({})
+    subscribed = await db.users.count_documents(
+        {"push_subscription": {"$exists": True, "$ne": None}}
+    )
+    return {"total_users": total_users, "push_subscribed": subscribed}
 
 
 def _ist_now() -> datetime:

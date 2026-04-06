@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   MapPin,
+  Shield,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -68,6 +69,22 @@ export default function Layout() {
             {label}
           </NavLink>
         ))}
+        {user?.is_admin && (
+          <NavLink
+            to="/admin"
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 ${
+                isActive
+                  ? "bg-accent-primary/10 text-accent-primary font-medium"
+                  : "text-text-muted hover:text-text-primary hover:bg-bg-elevated"
+              }`
+            }
+          >
+            <Shield size={17} />
+            Admin
+          </NavLink>
+        )}
       </nav>
 
       {/* User + logout */}

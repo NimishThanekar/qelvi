@@ -11,6 +11,7 @@ import History from './pages/History';
 import Profile from './pages/Profile';
 import Groups from './pages/Groups';
 import Insights from './pages/Insights';
+import Admin from './pages/Admin';
 import InstallBanner from './components/InstallBanner';
 import { setupPushNotifications } from './lib/push';
 
@@ -29,14 +30,19 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated) return;
     refreshUser();
 
-    // Request push notification permission once per browser, after login.
-    // Deliberately delayed 4 s so the user isn't immediately greeted with a
-    // permission dialog — they should see the app first.
-    if (!localStorage.getItem(PUSH_ASKED_KEY) && 'Notification' in window) {
+    if (!('Notification' in window)) return;
+    const perm = Notification.permission;
+
+    if (perm === 'denied') return;
+
+    if (perm === 'granted') {
+      // Already permitted — silently ensure an active subscription exists
+      // (e.g., after a fresh SW registration or new device).
+      setTimeout(() => setupPushNotifications().catch(() => {}), 4000);
+    } else if (!localStorage.getItem(PUSH_ASKED_KEY)) {
+      // Permission is 'default' — ask once. Delay so the user sees the app first.
       localStorage.setItem(PUSH_ASKED_KEY, '1');
-      setTimeout(() => {
-        setupPushNotifications().catch(() => {});
-      }, 4000);
+      setTimeout(() => setupPushNotifications().catch(() => {}), 4000);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -78,6 +84,7 @@ export default function App() {
           <Route path="groups" element={<Groups />} />
           <Route path="insights" element={<Insights />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
