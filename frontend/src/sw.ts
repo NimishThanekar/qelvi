@@ -14,8 +14,8 @@ self.addEventListener('push', (event) => {
   const title = data.title ?? 'Qelvi';
   const options: NotificationOptions = {
     body: data.body ?? '',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: '/icons/icon-192.png',   // full-colour app icon in the notification body
+    badge: '/icons/badge-96.png',  // white-on-transparent for the Android status bar
     data: { url: data.url ?? '/dashboard' },
   };
   event.waitUntil(self.registration.showNotification(title, options));

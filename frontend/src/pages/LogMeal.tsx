@@ -1,12 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import FoodSearchModal from '../components/FoodSearchModal';
 import type { MealType } from '../types';
 import { MEAL_TYPES } from '../types';
 
+const VALID_MEAL_TYPES = MEAL_TYPES.map((m) => m.value);
+
 export default function LogMeal() {
+  const [searchParams] = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const [mealType, setMealType] = useState<MealType>('lunch');
+
+  useEffect(() => {
+    const param = searchParams.get('meal');
+    if (param && (VALID_MEAL_TYPES as string[]).includes(param)) {
+      setMealType(param as MealType);
+      setShowModal(true);
+    }
+  }, [searchParams]);
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">

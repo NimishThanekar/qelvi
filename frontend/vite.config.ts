@@ -34,6 +34,32 @@ export default defineConfig({
             purpose: 'any maskable',
           },
         ],
+        shortcuts: [
+          {
+            name: 'Log Breakfast',
+            short_name: 'Breakfast',
+            url: '/log?meal=breakfast',
+            icons: [{ src: '/icons/shortcut-breakfast.png', sizes: '96x96' }],
+          },
+          {
+            name: 'Log Lunch',
+            short_name: 'Lunch',
+            url: '/log?meal=lunch',
+            icons: [{ src: '/icons/shortcut-lunch.png', sizes: '96x96' }],
+          },
+          {
+            name: 'Log Dinner',
+            short_name: 'Dinner',
+            url: '/log?meal=dinner',
+            icons: [{ src: '/icons/shortcut-dinner.png', sizes: '96x96' }],
+          },
+          {
+            name: 'Log Snack',
+            short_name: 'Snack',
+            url: '/log?meal=snack',
+            icons: [{ src: '/icons/shortcut-snack.png', sizes: '96x96' }],
+          },
+        ],
       },
       devOptions: {
         enabled: true,
