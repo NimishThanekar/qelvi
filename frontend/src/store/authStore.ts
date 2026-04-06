@@ -15,6 +15,9 @@ export interface User {
   calorie_goal?: number;
   bmr?: number;
   tdee?: number;
+  is_admin?: boolean;
+  is_pro?: boolean;
+  ai_uses_remaining?: number;
 }
 
 interface AuthState {
@@ -23,6 +26,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
+  googleLogin: (credential: string) => Promise<void>;
   logout: () => void;
   updateUser: (data: any) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -44,6 +48,13 @@ export const useAuthStore = create<AuthState>()(
 
       register: async (data) => {
         const res = await authApi.register(data);
+        const { access_token, user } = res.data;
+        localStorage.setItem('token', access_token);
+        set({ token: access_token, user, isAuthenticated: true });
+      },
+
+      googleLogin: async (credential) => {
+        const res = await authApi.googleLogin(credential);
         const { access_token, user } = res.data;
         localStorage.setItem('token', access_token);
         set({ token: access_token, user, isAuthenticated: true });

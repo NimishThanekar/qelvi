@@ -15,6 +15,8 @@ export interface FoodItem {
   meal_category?: string;
   meal_tags?: string[];
   food_image_url?: string;
+  is_custom?: boolean;
+  combo_items?: { food_id: string; food_name: string; calories: number; weight_g: number; quantity: number }[];
 }
 
 export interface MealEntry {
@@ -40,7 +42,22 @@ export interface MealLog {
   total_calories: number;
   notes?: string;
   context?: string;
+  source?: string;
   created_at: string;
+}
+
+export interface AIEstimateItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  estimated_calories: number;
+}
+
+export interface AIEstimateResponse {
+  items: AIEstimateItem[];
+  total_calories: number;
+  confidence: 'high' | 'medium' | 'low';
+  cached: boolean;
 }
 
 export interface FrequentFood extends MealEntry {
@@ -71,36 +88,14 @@ export const MOODS: Record<MoodKey, { emoji: string; label: string; color: strin
 export const MOOD_LIST = (Object.entries(MOODS) as [MoodKey, { emoji: string; label: string; color: string }][])
   .map(([key, v]) => ({ key, ...v }));
 
-export interface GroupMember {
-  user_id: string;
-  name: string;
-  checked_in_today: boolean;
-  is_me: boolean;
-  mood?: MoodKey | null;
-  missed_days: number;
-  anchor_user_id?: string | null;
-  anchor_missing?: boolean;
-}
-
-export interface Group {
+export interface Buddy {
   id: string;
-  name: string;
   code: string;
-  members: GroupMember[];
-  reset_time: string;
-  reset_timezone: string;
-  code_expires_at?: string | null;
-  is_creator: boolean;
-  anchor_pairs: Record<string, string>;
-}
-
-export interface WeeklyRecap {
-  group_id: string;
-  group_name: string;
-  checkin_days: number;
-  total_possible: number;
-  best_streak: number;
-  vs_last_week: number;
+  streak: number;
+  buddy_name: string | null;
+  buddy_checked_in_today: boolean;
+  my_checked_in_today: boolean;
+  created_at: string;
 }
 
 export interface DayStatus {
@@ -119,6 +114,15 @@ export interface ContextStat {
   over_goal_pct: number;
   days_with_context: number;
   vs_home_delta: number | null;
+}
+
+export interface ContextInsightFull extends ContextStat {
+  top_foods: string[];
+  day_of_week: Record<string, number>;       // "0"–"6" -> avg kcal
+  day_of_week_count: Record<string, number>; // "0"–"6" -> number of logs
+  peak_day: string | null;
+  prev_avg_calories: number | null;
+  trend_pct: number | null; // positive = calories went UP vs prior 30 days
 }
 
 export interface DailySummary {
@@ -150,21 +154,70 @@ export const MEAL_CONTEXTS = [
 ];
 
 export const CATEGORY_IMAGES: Record<string, string> = {
+  // Existing categories (both slug formats for compatibility)
+  'Veg bhaji/sabzi': 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80',
   'Veg bhaji / sabzi': 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80',
+  'Dal/pulses/legumes': 'https://images.unsplash.com/photo-1546549032-9571cd6b27df?w=400&q=80',
   'Dal / pulses / legumes': 'https://images.unsplash.com/photo-1546549032-9571cd6b27df?w=400&q=80',
+  'Staples/breakfast/rice': 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=80',
   'Staples / breakfast / rice': 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=80',
+  'Rice/biryani': 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80',
   'Rice / biryani': 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80',
+  'Chinese/Indo-Chinese': 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&q=80',
   'Chinese / Indo-Chinese': 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&q=80',
   'South Indian': 'https://images.unsplash.com/photo-1630383249896-424e482df921?w=400&q=80',
+  'Fish/seafood': 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&q=80',
   'Fish / seafood': 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&q=80',
+  'Non-veg curry/dry': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400&q=80',
   'Non-veg curry / dry': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400&q=80',
+  'Street food/fast food': 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=400&q=80',
   'Street food / fast food': 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=400&q=80',
+  'Cafe/international': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
+  'Cafe / international': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
   'Cafe / international fast food': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
+  'Bakery/snacks/sweets': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80',
   'Bakery / snacks / sweets': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80',
   'Salad': 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&q=80',
   'Drink': 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&q=80',
   'Alcoholic drink': 'https://images.unsplash.com/photo-1516997121675-4c2d1684aa3e?w=400&q=80',
+  // New categories
+  'Bread/roti/flatbreads': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80',
+  'North Indian': 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80',
+  'Mughlai': 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400&q=80',
+  'Gujarati': 'https://images.unsplash.com/photo-1546549032-9571cd6b27df?w=400&q=80',
+  'Bengali': 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&q=80',
+  'Rajasthani': 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80',
+  'Egg dishes': 'https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&q=80',
+  'Pizza': 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&q=80',
+  'Burger/sandwich': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
+  'Dessert/mithai': 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&q=80',
+  'Dairy/milk products': 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400&q=80',
+  'Soup': 'https://images.unsplash.com/photo-1547592180-85f173990554?w=400&q=80',
+  'Noodles/pasta': 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&q=80',
+  'Protein/fitness foods': 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&q=80',
+  'Fruits': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400&q=80',
 };
 
 export const getCategoryImage = (category: string): string =>
   CATEGORY_IMAGES[category] || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80';
+
+
+export interface WeeklyWrapData {
+  week_start: string;
+  week_end: string;
+  total_calories: number;
+  avg_daily_calories: number;
+  best_day: string | null;
+  most_logged_food: string | null;
+  most_common_meal_type: string | null;
+  streak: number;
+  context_breakdown: Record<string, number>;
+  consistency_score: number;
+  vs_previous_week: number | null;
+  title: string;
+  title_emoji: string;
+  days_logged: number;
+  total_meals: number;
+  unique_foods: number;
+  calorie_goal: number;
+}

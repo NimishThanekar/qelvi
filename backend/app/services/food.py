@@ -12,8 +12,10 @@ async def search_foods(query: str = "", category: str = "", cuisine: str = "", m
     if cuisine:
         filter["cuisine"] = {"$regex": f"^{cuisine}$", "$options": "i"}
 
-    cursor = db["foods"].find(filter, {"_id": 0})
+    cursor = db["foods"].find(filter)
     foods = await cursor.to_list(length=None)
+    for food in foods:
+        food["id"] = str(food.pop("_id"))
 
     if meal_type:
         target = "anytime" if meal_type == "adhoc" else meal_type.lower()
@@ -32,7 +34,10 @@ async def search_foods(query: str = "", category: str = "", cuisine: str = "", m
 
 async def get_food_by_id(food_id: str) -> Optional[dict]:
     db = get_db()
-    return await db["foods"].find_one({"id": food_id}, {"_id": 0})
+    food = await db["foods"].find_one({"_id": food_id})
+    if food:
+        food["id"] = str(food.pop("_id"))
+    return food
 
 
 async def get_categories() -> List[str]:

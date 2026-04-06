@@ -10,16 +10,17 @@ import {
   TrendingUp,
   Coffee,
   RotateCcw,
-  Share2,
+  X,
 } from "lucide-react";
 import { logsApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
-import { useAccentColor } from "../store/themeStore";
 import type { DailySummary, MealLog, FrequentFood, DayStatus, ContextStat } from "../types";
 import { MEAL_TYPES, MEAL_CONTEXTS } from "../types";
 import CalorieRing from "../components/CalorieRing";
+import CaloriePace from "../components/CaloriePace";
+import WeeklyWrap from "../components/WeeklyWrap";
+import ContextInsightsCard from "../components/ContextInsightsCard";
 import FoodSearchModal from "../components/FoodSearchModal";
-import ShareModal from "../components/ShareModal";
 import toast from "react-hot-toast";
 
 function CountUp({ to, duration = 650 }: { to: number; duration?: number }) {
@@ -47,9 +48,10 @@ function CountUp({ to, duration = 650 }: { to: number; duration?: number }) {
   return <>{display}</>;
 }
 
+const ACCENT = "#3B7BFF";
+
 export default function Dashboard() {
   const { user } = useAuthStore();
-  const accentColor = useAccentColor();
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [_loading, setLoading] = useState(false);
@@ -58,7 +60,9 @@ export default function Dashboard() {
   const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([]);
   const [dayStatus, setDayStatus] = useState<DayStatus | null>(null);
   const [contextStats, setContextStats] = useState<ContextStat[]>([]);
-  const [showShare, setShowShare] = useState(false);
+  const [dismissedMetricsBanner, setDismissedMetricsBanner] = useState(
+    () => localStorage.getItem("metrics-banner-dismissed") === "1"
+  );
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -103,6 +107,29 @@ export default function Dashboard() {
       fetchSummary();
     } catch {
       toast.error("Failed to delete");
+    }
+  };
+
+  const handleLogAgain = async (entry: import("../types").MealEntry, mealType: string) => {
+    try {
+      await logsApi.create({
+        date,
+        meal_type: mealType,
+        entries: [{
+          food_id: entry.food_id,
+          food_name: entry.food_name,
+          category: entry.category,
+          cuisine: entry.cuisine,
+          serving_type: entry.serving_type,
+          quantity: entry.quantity,
+          weight_g: entry.weight_g,
+          calories: entry.calories,
+        }],
+      });
+      toast.success(`Logged ${entry.food_name} — ${Math.round(entry.calories)} kcal`);
+      fetchSummary();
+    } catch {
+      toast.error("Failed to log");
     }
   };
 
@@ -160,20 +187,6 @@ export default function Dashboard() {
   const remaining = Math.max(0, goal - consumed);
   const pct = goal > 0 ? Math.min((consumed / goal) * 100, 100) : 0;
 
-  // top food by calories across all entries today
-  const topFood: string | null = (() => {
-    if (!summary?.meals.length) return null;
-    let best: { name: string; cals: number } | null = null;
-    for (const meal of summary.meals) {
-      for (const entry of meal.entries) {
-        if (!best || entry.calories > best.cals) {
-          best = { name: entry.food_name, cals: entry.calories };
-        }
-      }
-    }
-    return best?.name ?? null;
-  })();
-
   const dateLabel = isToday
     ? "Today"
     : date === new Date(Date.now() - 86400000).toISOString().split("T")[0]
@@ -191,24 +204,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Share button — glows when user has logged data */}
-          <button
-            onClick={() => setShowShare(true)}
-            className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-            title="Share your stats (Beta)"
-            style={
-              consumed > 0
-                ? {
-                    backgroundColor: `rgba(var(--accent-rgb)/0.12)`,
-                    color: accentColor,
-                    boxShadow: `0 0 10px rgba(var(--accent-rgb)/0.25)`,
-                  }
-                : { backgroundColor: "var(--bg-elevated)", color: "var(--text-muted)" }
-            }
-          >
-            <Share2 size={15} />
-            <span className="absolute -top-1 -right-1 text-[8px] font-bold leading-none px-1 py-px rounded-sm" style={{ backgroundColor: accentColor, color: "var(--btn-fg)" }}>β</span>
-          </button>
           <button
             onClick={() => changeDate(-1)}
             className="w-8 h-8 rounded-lg bg-bg-elevated hover:bg-bg-border flex items-center justify-center text-text-secondary hover:text-text-primary transition-colors"
@@ -233,6 +228,32 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Metrics banner — shown when no body metrics set */}
+      {!dismissedMetricsBanner && !user?.weight_kg && (
+        <div className="mb-4 card p-3 flex items-center gap-3" style={{ borderColor: "rgba(59,123,255,0.2)", backgroundColor: "rgba(59,123,255,0.06)" }}>
+          <span className="text-base flex-shrink-0">📏</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-text-primary">Add your body metrics</p>
+            <p className="text-xs text-text-muted mt-0.5">
+              Get a personalized calorie goal based on your BMR &amp; TDEE →{" "}
+              <a href="/profile" className="text-accent-primary hover:text-accent-soft">Profile</a>
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              localStorage.setItem("metrics-banner-dismissed", "1");
+              setDismissedMetricsBanner(true);
+            }}
+            className="flex-shrink-0 p-1 text-text-muted hover:text-text-secondary transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Weekly Wrap — shows previous week's summary */}
+      <WeeklyWrap />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {/* Calorie ring card — with ambient glow */}
         <div className="card p-5 flex flex-col items-center col-span-1 relative">
@@ -252,7 +273,7 @@ export default function Dashboard() {
               <p className="text-xs text-text-muted mb-1">Remaining</p>
               <p
                 className="text-lg font-bold"
-                style={{ color: remaining === 0 ? "#f87171" : accentColor }}
+                style={{ color: remaining === 0 ? "#f87171" : ACCENT }}
               >
                 <CountUp to={Math.round(remaining)} />
               </p>
@@ -270,7 +291,7 @@ export default function Dashboard() {
         <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-3 stagger-pop">
           {[
             { label: "Consumed", num: Math.round(consumed), suffix: "",  unit: "kcal",      icon: Flame,      color: "#fb923c" },
-            { label: "Progress", num: Math.round(pct),      suffix: "%", unit: "of goal",   icon: Target,     color: accentColor },
+            { label: "Progress", num: Math.round(pct),      suffix: "%", unit: "of goal",   icon: Target,     color: ACCENT },
             { label: "Meals",    num: summary?.meals.length || 0, suffix: "", unit: "entries", icon: Coffee,  color: "#38bdf8" },
             { label: "BMR",      num: user?.bmr ? Math.round(user.bmr) : null, suffix: "", unit: "base rate", icon: TrendingUp, color: "#a78bfa" },
           ].map((stat) => (
@@ -298,6 +319,9 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      {/* Calorie Pace — real-time projection for today */}
+      {isToday && consumed > 0 && <CaloriePace consumed={consumed} goal={goal} />}
 
       {/* Recovery Mode Banner — context-aware */}
       {dayStatus?.recovery_day && (() => {
@@ -350,41 +374,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Environment Insight Card — shown once user has data across ≥2 contexts */}
-      {(() => {
-        const eligible = contextStats.filter(s => s.count >= 3);
-        if (eligible.length < 2) return null;
-        const riskiest = eligible.reduce((a, b) => a.over_goal_pct > b.over_goal_pct ? a : b);
-        const safest = eligible.reduce((a, b) => a.over_goal_pct < b.over_goal_pct ? a : b);
-        if (riskiest.context === safest.context) return null;
-        const rInfo = MEAL_CONTEXTS.find(c => c.value === riskiest.context);
-        const sInfo = MEAL_CONTEXTS.find(c => c.value === safest.context);
-        return (
-          <div className="mb-4 card p-4">
-            <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">📍 Your environment patterns</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-bg-elevated rounded-xl p-3">
-                <p className="text-[10px] text-text-muted mb-1">Riskiest spot</p>
-                <p className="text-xs font-semibold" style={{ color: "#fb923c" }}>
-                  {rInfo?.emoji ?? "🍽️"} {rInfo?.label ?? riskiest.context}
-                </p>
-                <p className="text-[10px] text-text-muted mt-0.5">
-                  avg {riskiest.avg_calories} kcal · {riskiest.over_goal_pct}% days over goal
-                </p>
-              </div>
-              <div className="bg-bg-elevated rounded-xl p-3">
-                <p className="text-[10px] text-text-muted mb-1">Best spot</p>
-                <p className="text-xs font-semibold" style={{ color: "#34d399" }}>
-                  {sInfo?.emoji ?? "🏠"} {sInfo?.label ?? safest.context}
-                </p>
-                <p className="text-[10px] text-text-muted mt-0.5">
-                  avg {safest.avg_calories} kcal · on track {100 - safest.over_goal_pct}% of days
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <ContextInsightsCard stats={contextStats} />
 
       {/* Meal sections — stagger entrance */}
       <div className="space-y-3 mb-20 md:mb-0 stagger">
@@ -456,6 +446,13 @@ export default function Dashboard() {
                           {Math.round(entry.calories)} kcal
                         </span>
                         <button
+                          onClick={() => handleLogAgain(entry, mt.value)}
+                          title="Log again"
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-bg-elevated text-text-muted hover:text-text-primary transition-all"
+                        >
+                          <RotateCcw size={13} />
+                        </button>
+                        <button
                           onClick={() => handleDelete(log.id)}
                           className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-400/10 text-text-muted hover:text-red-400 transition-all"
                         >
@@ -492,12 +489,6 @@ export default function Dashboard() {
         />
       )}
 
-      {showShare && (
-        <ShareModal
-          data={{ consumed, goal, meals: summary?.meals.length ?? 0, topFood }}
-          onClose={() => setShowShare(false)}
-        />
-      )}
     </div>
   );
 }

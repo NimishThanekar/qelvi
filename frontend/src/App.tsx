@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
-import { useThemeStore } from './store/themeStore';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -11,9 +10,37 @@ import LogMeal from './pages/LogMeal';
 import History from './pages/History';
 import Profile from './pages/Profile';
 import Groups from './pages/Groups';
+import Insights from './pages/Insights';
+import InstallBanner from './components/InstallBanner';
+import { setupPushNotifications } from './lib/push';
 
+const PUSH_ASKED_KEY = 'push-permission-asked';
+
+/**
+ * On every app mount, re-fetch the user record from the server so that
+ * security-relevant fields (is_pro, ai_uses_remaining) cannot be spoofed
+ * by editing localStorage. localStorage is only used for the initial render
+ * before this async call resolves.
+ */
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, refreshUser } = useAuthStore();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    refreshUser();
+
+    // Request push notification permission once per browser, after login.
+    // Deliberately delayed 4 s so the user isn't immediately greeted with a
+    // permission dialog — they should see the app first.
+    if (!localStorage.getItem(PUSH_ASKED_KEY) && 'Notification' in window) {
+      localStorage.setItem(PUSH_ASKED_KEY, '1');
+      setTimeout(() => {
+        setupPushNotifications().catch(() => {});
+      }, 4000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
@@ -23,14 +50,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { theme } = useThemeStore();
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
-
   return (
     <BrowserRouter>
+      <InstallBanner />
       <Toaster
         position="top-right"
         toastOptions={{
@@ -54,6 +76,7 @@ export default function App() {
           <Route path="log" element={<LogMeal />} />
           <Route path="history" element={<History />} />
           <Route path="groups" element={<Groups />} />
+          <Route path="insights" element={<Insights />} />
           <Route path="profile" element={<Profile />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

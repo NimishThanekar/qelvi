@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import { useAuthStore } from "../store/authStore";
 import { Flame, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
@@ -9,7 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuthStore();
+  const { login, googleLogin } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,6 +93,34 @@ export default function Login() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-bg-elevated" />
+            <span className="text-xs text-text-muted">or</span>
+            <div className="flex-1 h-px bg-bg-elevated" />
+          </div>
+
+          {/* Google Sign-In */}
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={async (res) => {
+                if (!res.credential) return;
+                try {
+                  await googleLogin(res.credential);
+                  navigate("/dashboard");
+                } catch (err: any) {
+                  toast.error(err?.response?.data?.detail || "Google sign-in failed");
+                }
+              }}
+              onError={() => toast.error("Google sign-in failed")}
+              theme="filled_black"
+              shape="rectangular"
+              text="signin_with"
+              size="large"
+              width="320"
+            />
+          </div>
 
           <p className="text-xs text-text-muted text-center mt-5">
             Don't have an account?{" "}

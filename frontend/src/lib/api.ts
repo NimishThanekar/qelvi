@@ -30,6 +30,9 @@ export const authApi = {
   login: (data: any) => api.post('/auth/login', data),
   me: () => api.get('/auth/me'),
   updateProfile: (data: any) => api.put('/auth/me', data),
+  googleLogin: (credential: string) => api.post('/auth/google', { credential }),
+  savePushSubscription: (subscription: any) =>
+    api.put('/auth/push-subscription', { subscription }),
 };
 
 // Foods
@@ -57,17 +60,30 @@ export const logsApi = {
   getTemplates: () => api.get('/logs/templates'),
   dayStatus: () => api.get('/logs/day-status'),
   contextStats: () => api.get('/logs/context-stats'),
+  contextInsights: () => api.get('/logs/context-insights'),
+  weeklyWrap: (weekStart?: string) =>
+    api.get('/logs/weekly-wrap', { params: weekStart ? { week_start: weekStart } : {} }),
 };
 
-// Groups
+// Buddy system
 export const groupsApi = {
-  create:           (name: string) => api.post('/groups/create', { name }),
-  join:             (code: string) => api.post(`/groups/join/${code}`),
-  checkin:          (groupId: string, mood?: string | null) => api.post(`/groups/checkin/${groupId}`, { mood: mood ?? null }),
-  setMood:          (groupId: string, mood: string) => api.post(`/groups/checkin/${groupId}/mood`, { mood }),
-  my:               () => api.get('/groups/my'),
-  updateSettings:   (groupId: string, data: { reset_time?: string; reset_timezone?: string }) => api.put(`/groups/${groupId}/settings`, data),
-  setAnchor:        (groupId: string, anchor_user_id: string | null) => api.post(`/groups/${groupId}/anchor`, { anchor_user_id }),
-  regenerateCode:   (groupId: string, expires_in?: string) => api.post(`/groups/${groupId}/regenerate-code`, { expires_in: expires_in ?? null }),
-  weeklyRecap:      (groupId: string) => api.get(`/groups/${groupId}/recap`),
+  create:  () => api.post('/groups/create', { name: 'buddy' }),
+  join:    (code: string) => api.post(`/groups/join/${code}`),
+  checkin: (groupId: string) => api.post(`/groups/checkin/${groupId}`, { mood: null }),
+  my:      () => api.get('/groups/my'),
 };
+
+// AI meal estimation
+export const aiApi = {
+  estimate: (text: string, meal_type: string) =>
+    api.post('/ai/estimate', { text, meal_type }),
+};
+
+// Custom Foods (user-exclusive)
+export const customFoodsApi = {
+  list: (q?: string) => api.get('/custom-foods/', { params: q ? { q } : {} }),
+  create: (data: { name: string; calories_per_serving: number; serving_size_g?: number; combo_items?: any[] }) =>
+    api.post('/custom-foods/', data),
+  delete: (id: string) => api.delete(`/custom-foods/${id}`),
+};
+

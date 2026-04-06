@@ -14,7 +14,6 @@ import {
 } from "recharts";
 import { logsApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
-import { useAccentColor } from "../store/themeStore";
 import type { ContextStat } from "../types";
 import { MEAL_CONTEXTS } from "../types";
 import { TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
@@ -42,9 +41,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+const ACCENT = "#3B7BFF";
+
 export default function History() {
   const { user } = useAuthStore();
-  const accentColor = useAccentColor();
   const [range, setRange] = useState<Range>("7d");
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,7 +134,7 @@ export default function History() {
             value: Math.round(avg),
             unit: "kcal",
             icon: trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus,
-            color: accentColor,
+            color: ACCENT,
           },
           {
             label: "Days tracked",
@@ -180,7 +180,7 @@ export default function History() {
           </div>
           <div className="flex items-center gap-3 text-xs text-text-muted">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 inline-block rounded" style={{ backgroundColor: accentColor }} />
+              <span className="w-3 h-0.5 inline-block rounded" style={{ backgroundColor: ACCENT }} />
               Consumed
             </span>
             <span className="flex items-center gap-1.5">
@@ -201,8 +201,8 @@ export default function History() {
             >
               <defs>
                 <linearGradient id="calGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={accentColor} stopOpacity={0.25} />
-                  <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
+                  <stop offset="0%" stopColor={ACCENT} stopOpacity={0.25} />
+                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -231,11 +231,11 @@ export default function History() {
                 type="monotone"
                 dataKey="total_calories"
                 name="calories"
-                stroke={accentColor}
+                stroke={ACCENT}
                 strokeWidth={2}
                 fill="url(#calGrad)"
-                dot={{ fill: accentColor, r: 3, strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: accentColor }}
+                dot={{ fill: ACCENT, r: 3, strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: ACCENT }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -282,7 +282,7 @@ export default function History() {
               <Tooltip content={<CustomTooltip />} />
               <ReferenceLine
                 y={user?.calorie_goal || 2000}
-                stroke={accentColor}
+                stroke={ACCENT}
                 strokeDasharray="4 4"
                 strokeOpacity={0.4}
               />
@@ -290,7 +290,7 @@ export default function History() {
                 dataKey="total_calories"
                 name="calories"
                 radius={[4, 4, 0, 0]}
-                fill={accentColor}
+                fill={ACCENT}
                 fillOpacity={0.7}
               />
             </BarChart>
@@ -326,7 +326,7 @@ export default function History() {
                           ? "#f87171"
                           : pct > 85
                           ? "#fb923c"
-                          : accentColor,
+                          : ACCENT,
                       }}
                     />
                   </div>
@@ -339,7 +339,7 @@ export default function History() {
                         ? "#f87171"
                         : d.total_calories === 0
                         ? "var(--text-muted)"
-                        : accentColor,
+                        : ACCENT,
                     }}
                   >
                     {d.total_calories === 0
@@ -378,7 +378,7 @@ export default function History() {
                   ? "#f87171"
                   : stat.avg_calories > goal * 0.88
                   ? "#fb923c"
-                  : accentColor;
+                  : ACCENT;
 
               return (
                 <div key={stat.context}>

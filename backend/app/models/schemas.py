@@ -46,6 +46,9 @@ class UserResponse(BaseModel):
     calorie_goal: Optional[int] = None
     bmr: Optional[float] = None
     tdee: Optional[float] = None
+    is_admin: Optional[bool] = False
+    is_pro: bool = False
+    ai_uses_remaining: int = 10
 
 
 class Token(BaseModel):
@@ -96,6 +99,7 @@ class MealLogCreate(BaseModel):
     entries: List[MealEntry]
     notes: Optional[str] = None
     context: Optional[str] = None  # home/office/restaurant/street_food/travel/party/late_night
+    source: Optional[str] = None  # "manual" | "ai"
 
 
 class MealLogResponse(BaseModel):
@@ -107,7 +111,28 @@ class MealLogResponse(BaseModel):
     total_calories: float
     notes: Optional[str] = None
     context: Optional[str] = None
+    source: Optional[str] = None
     created_at: datetime
+
+
+# AI Meal Estimation
+class AIEstimateRequest(BaseModel):
+    text: str
+    meal_type: str = "lunch"
+
+
+class AIEstimateItem(BaseModel):
+    name: str
+    quantity: float
+    unit: str = "serving"
+    estimated_calories: int
+
+
+class AIEstimateResponse(BaseModel):
+    items: List[AIEstimateItem]
+    total_calories: int
+    confidence: str  # "high" | "medium" | "low"
+    cached: bool = False
 
 
 class DailySummary(BaseModel):
@@ -116,6 +141,24 @@ class DailySummary(BaseModel):
     calorie_goal: Optional[int]
     meals: List[dict]
     meal_breakdown: dict
+
+
+# Custom Foods (user-exclusive)
+class CustomFoodCreate(BaseModel):
+    name: str
+    calories_per_serving: float
+    serving_size_g: Optional[float] = 100.0
+    combo_items: Optional[List[dict]] = None  # [{food_id, food_name, calories, weight_g, quantity}]
+
+
+class CustomFoodResponse(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    calories_per_serving: float
+    serving_size_g: float
+    combo_items: Optional[List[dict]] = None
+    created_at: str
 
 
 # Meal Templates

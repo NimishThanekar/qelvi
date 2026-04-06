@@ -1,6 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
-import { useThemeStore } from "../store/themeStore";
 import {
   LayoutDashboard,
   UtensilsCrossed,
@@ -10,7 +9,7 @@ import {
   LogOut,
   Menu,
   X,
-  Palette,
+  MapPin,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -18,13 +17,13 @@ const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/log", icon: UtensilsCrossed, label: "Log Meal" },
   { to: "/history", icon: BarChart3, label: "History" },
-  { to: "/groups", icon: Users, label: "Circles" },
+  { to: "/insights", icon: MapPin, label: "Insights" },
+  { to: "/groups", icon: Users, label: "Buddy" },
   { to: "/profile", icon: User, label: "Profile" },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
-  const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -44,7 +43,7 @@ export default function Layout() {
             letterSpacing: "0.32em",
             fontSize: 15,
           }}
-          className="text-accent-primary uppercase"
+          className="text-accent-primary uppercase qelvi-logo"
         >
           QELVI
         </span>
@@ -70,64 +69,6 @@ export default function Layout() {
           </NavLink>
         ))}
       </nav>
-
-      {/* Theme toggle */}
-      <button
-        onClick={toggleTheme}
-        title={`Switch to ${theme === "cobalt" ? "Cyan" : "Cobalt"} theme`}
-        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-all w-full mb-1"
-      >
-        <Palette size={15} />
-        <span className="flex-1 text-left">Theme</span>
-        <div className="flex items-center gap-1.5">
-          <div
-            className={`w-2.5 h-2.5 rounded-full transition-all ${
-              theme === "cobalt"
-                ? "ring-1 ring-white/30 scale-125"
-                : "opacity-35"
-            }`}
-            style={{ backgroundColor: "#3B7BFF" }}
-          />
-          <div
-            className={`w-2.5 h-2.5 rounded-full transition-all ${
-              theme === "cyan" ? "ring-1 ring-white/30 scale-125" : "opacity-35"
-            }`}
-            style={{ backgroundColor: "#06B6D4" }}
-          />
-          <div
-            className={`w-2.5 h-2.5 rounded-full transition-all ${
-              theme === "rose" ? "ring-1 ring-white/30 scale-125" : "opacity-35"
-            }`}
-            style={{ backgroundColor: "#E11D48" }}
-          />
-          <div
-            className={`w-2.5 h-2.5 rounded-full transition-all ${
-              theme === "aura" ? "ring-1 ring-white/30 scale-125" : "opacity-35"
-            }`}
-            style={{ backgroundColor: "#A855F7" }}
-          />
-          <div
-            className={`w-2.5 h-2.5 rounded-full transition-all ${
-              theme === "neon" ? "ring-1 ring-white/30 scale-125" : "opacity-35"
-            }`}
-            style={{ backgroundColor: "#EC4899" }}
-          />
-          <div
-            className={`w-2.5 h-2.5 rounded-full transition-all border border-white/20 ${
-              theme === "mono" ? "ring-1 ring-white/30 scale-125" : "opacity-35"
-            }`}
-            style={{ backgroundColor: "#EBEBEB" }}
-          />
-          <div
-            className={`w-2.5 h-2.5 rounded-full transition-all border border-black/20 ${
-              theme === "paper"
-                ? "ring-1 ring-white/30 scale-125"
-                : "opacity-35"
-            }`}
-            style={{ backgroundColor: "#000" }}
-          />
-        </div>
-      </button>
 
       {/* User + logout */}
       <div className="border-t border-bg-border pt-4 mt-4">
@@ -171,7 +112,7 @@ export default function Layout() {
             letterSpacing: "0.32em",
             fontSize: 14,
           }}
-          className="text-accent-primary uppercase"
+          className="text-accent-primary uppercase qelvi-logo"
         >
           QELVI
         </span>

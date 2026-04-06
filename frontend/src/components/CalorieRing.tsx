@@ -1,4 +1,4 @@
-import { useAccentColor } from "../store/themeStore";
+const ACCENT = "#3B7BFF";
 
 interface CalorieRingProps {
   consumed: number;
@@ -7,14 +7,13 @@ interface CalorieRingProps {
 }
 
 export default function CalorieRing({ consumed, goal, size = 160 }: CalorieRingProps) {
-  const accentColor = useAccentColor();
   const pct = goal > 0 ? Math.min(consumed / goal, 1) : 0;
   const r = 46;
   const circumference = 2 * Math.PI * r;
   const strokeDash = pct * circumference;
   const over = consumed > goal && goal > 0;
 
-  const color = over ? '#f87171' : pct > 0.8 ? '#fb923c' : accentColor;
+  const color = over ? '#f87171' : pct > 0.8 ? '#fb923c' : ACCENT;
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
