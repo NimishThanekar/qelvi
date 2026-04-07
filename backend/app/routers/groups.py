@@ -6,7 +6,7 @@ from app.models.schemas import (
     GroupCreate, CheckinRequest, GroupSettingsUpdate,
     SetAnchorRequest, RegenerateCodeRequest,
 )
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, require_pro
 import random
 import string
 
@@ -119,7 +119,11 @@ async def get_my_groups(current_user: dict = Depends(get_current_user)):
 @router.post("/create")
 async def create_group(data: GroupCreate, current_user: dict = Depends(get_current_user)):
     db = get_db()
-    if await db.groups.count_documents({"member_ids": current_user["_id"]}) >= 5:
+    existing_count = await db.groups.count_documents({"member_ids": current_user["_id"]})
+    is_pro = current_user.get("is_pro", False)
+    if not is_pro and existing_count >= 1:
+        raise HTTPException(403, "Free users can have 1 buddy. Upgrade to Pro for unlimited.")
+    if is_pro and existing_count >= 5:
         raise HTTPException(400, "You can only be in up to 5 groups")
 
     code = _generate_code()
@@ -144,6 +148,12 @@ async def create_group(data: GroupCreate, current_user: dict = Depends(get_curre
 @router.post("/join/{code}")
 async def join_group(code: str, current_user: dict = Depends(get_current_user)):
     db = get_db()
+    # Enforce buddy limit before even looking up the group
+    existing_count = await db.groups.count_documents({"member_ids": current_user["_id"]})
+    is_pro = current_user.get("is_pro", False)
+    if not is_pro and existing_count >= 1:
+        raise HTTPException(403, "Free users can have 1 buddy. Upgrade to Pro for unlimited.")
+
     group = await db.groups.find_one({"code": code.upper()})
     if not group:
         raise HTTPException(404, "Group not found — check the code")

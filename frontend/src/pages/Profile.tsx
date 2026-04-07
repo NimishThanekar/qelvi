@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
-import { User, Target, Activity, Utensils, Scale, Save, Bell, BellOff } from "lucide-react";
+import { User, Target, Activity, Utensils, Scale, Save, Bell, BellOff, Crown, Zap } from "lucide-react";
 import toast from "react-hot-toast";
 import { setupPushNotifications, unsubscribePush } from "../lib/push";
 
@@ -151,6 +151,43 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      {/* Pro status card */}
+      {user?.is_pro ? (
+        <div
+          className="card p-4 mb-4 flex items-center gap-3"
+          style={{ borderColor: "rgba(167,139,250,0.3)", backgroundColor: "rgba(167,139,250,0.06)" }}
+        >
+          <Crown size={18} style={{ color: "#a78bfa", flexShrink: 0 }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold" style={{ color: "#a78bfa" }}>Pro plan active</p>
+            {user.pro_expires_at && (
+              <p className="text-xs text-text-muted mt-0.5">
+                {user.plan_type === "annual" ? "Annual" : "Monthly"} · Expires{" "}
+                {new Date(user.pro_expires_at).toLocaleDateString("en-IN", {
+                  day: "numeric", month: "long", year: "numeric",
+                })}
+              </p>
+            )}
+          </div>
+          <a href="/upgrade" className="text-xs text-text-muted hover:text-text-secondary transition-colors">
+            Manage
+          </a>
+        </div>
+      ) : (
+        <a
+          href="/upgrade"
+          className="card p-4 mb-4 flex items-center gap-3 hover:border-[rgba(163,230,53,0.3)] transition-all"
+          style={{ textDecoration: "none" }}
+        >
+          <Zap size={18} style={{ color: "#a3e635", flexShrink: 0 }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-text-primary">Upgrade to Pro</p>
+            <p className="text-xs text-text-muted mt-0.5">AI logging, meal suggestions, full insights · from ₹149/mo</p>
+          </div>
+          <span className="text-xs font-semibold" style={{ color: "#a3e635" }}>View →</span>
+        </a>
+      )}
 
       <div className="space-y-4">
         {/* Basic info */}

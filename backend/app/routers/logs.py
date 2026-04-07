@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, date
 from typing import List, Optional
 from app.database import get_db
 from app.models.schemas import MealLogCreate, MealLogResponse, MealTemplateCreate
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, require_pro
 
 router = APIRouter(prefix="/logs", tags=["logs"])
 
@@ -91,6 +91,18 @@ async def get_history(
     end_date: str,
     current_user: dict = Depends(get_current_user),
 ):
+    # Free users are capped to 7 days of history.
+    # Pro check: if user is not pro, enforce that the range ≤ 7 days.
+    if not current_user.get("is_pro", False):
+        try:
+            start = date.fromisoformat(start_date)
+            end = date.fromisoformat(end_date)
+            if (end - start).days > 6:
+                # Silently truncate to the last 7 days so the UI degrades gracefully
+                start_date = (end - timedelta(days=6)).isoformat()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format")
+
     db = get_db()
     logs = await db.meal_logs.find({
         "user_id": current_user["_id"],
@@ -419,7 +431,7 @@ async def get_weekly_wrap(
 
 
 @router.get("/context-insights")
-async def get_context_insights(current_user: dict = Depends(get_current_user)):
+async def get_context_insights(current_user: dict = Depends(require_pro)):
     """
     Rich context insights for the last 30 days:
       - avg_calories, over_goal_pct, vs_home_delta

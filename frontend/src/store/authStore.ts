@@ -18,6 +18,8 @@ export interface User {
   is_admin?: boolean;
   is_pro?: boolean;
   ai_uses_remaining?: number;
+  pro_expires_at?: string;
+  plan_type?: string;
 }
 
 interface AuthState {
@@ -74,14 +76,28 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await authApi.me();
           set({ user: res.data });
-        } catch {
-          get().logout();
+        } catch (err: any) {
+          // Only invalidate the session on a real 401 (token expired / invalid).
+          // Network errors, 5xx, timeouts etc. must NOT log the user out — the
+          // token is still valid, the backend is just temporarily unreachable
+          // (very common on PWA cold-starts with slow mobile connections).
+          if (err?.response?.status === 401) {
+            get().logout();
+          }
         }
       },
     }),
     {
       name: 'auth-storage',
       partialize: (state) => ({ token: state.token, user: state.user, isAuthenticated: state.isAuthenticated }),
+      // Re-sync the raw 'token' key that the Axios interceptor reads directly.
+      // This guards against cases where Android/PWA clears individual localStorage
+      // keys while leaving the Zustand JSON blob intact (or vice-versa).
+      onRehydrateStorage: () => (state) => {
+        if (state?.token) {
+          localStorage.setItem('token', state.token);
+        }
+      },
     }
   )
 );

@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, Users, Flame } from "lucide-react";
+import { Copy, Check, Users, Flame, Lock } from "lucide-react";
 import { groupsApi } from "../lib/api";
+import { useAuthStore } from "../store/authStore";
 import type { Buddy } from "../types";
 import toast from "react-hot-toast";
 
 export default function Groups() {
+  const { user } = useAuthStore();
+  const isPro = user?.is_pro;
   const [buddy, setBuddy] = useState<Buddy | null>(null);
   const [loading, setLoading] = useState(true);
   const [joinCode, setJoinCode] = useState("");
@@ -36,6 +39,10 @@ export default function Groups() {
       await fetchBuddy();
       toast.success("Buddy group created — share your code!");
     } catch (err: any) {
+      if (err?.response?.status === 403) {
+        window.location.href = "/upgrade";
+        return;
+      }
       toast.error(err?.response?.data?.detail || "Failed to create");
     } finally {
       setCreating(false);
@@ -51,6 +58,10 @@ export default function Groups() {
       toast.success("Joined your buddy!");
       setJoinCode("");
     } catch (err: any) {
+      if (err?.response?.status === 403) {
+        window.location.href = "/upgrade";
+        return;
+      }
       toast.error(err?.response?.data?.detail || "Invalid code");
     } finally {
       setJoining(false);
@@ -159,7 +170,7 @@ export default function Groups() {
               ) : (
                 <div className="p-3 bg-bg-elevated rounded-xl text-center">
                   <p className="text-xs text-text-muted">Waiting for your buddy to join…</p>
-                  <p className="text-xs text-text-muted mt-1">Share your invite code below</p>
+                  <p className="text-xs text-text-muted mt-1">Share your invite code, or enter theirs below</p>
                 </div>
               )}
             </div>
@@ -175,6 +186,32 @@ export default function Groups() {
               </button>
             )}
           </div>
+
+          {/* Join with buddy's code — shown when waiting for buddy */}
+          {!buddy.buddy_name && (
+            <div className="card p-5">
+              <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">
+                Enter your buddy's code
+              </p>
+              <div className="flex gap-2">
+                <input
+                  className="input flex-1 uppercase tracking-widest"
+                  placeholder="ENTER CODE"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  maxLength={8}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                />
+                <button
+                  onClick={handleJoin}
+                  disabled={joining || !joinCode.trim()}
+                  className="btn-primary px-5"
+                >
+                  {joining ? "…" : "Join"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Invite code */}
           <div className="card p-5">

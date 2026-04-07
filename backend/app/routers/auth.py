@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel
 from app.database import get_db
@@ -40,6 +40,8 @@ def format_user(user: dict) -> UserResponse:
         is_admin=user.get("is_admin", False),
         is_pro=user.get("is_pro", False),
         ai_uses_remaining=user.get("ai_uses_remaining", 10),
+        pro_expires_at=user["pro_expires_at"].isoformat() if user.get("pro_expires_at") else None,
+        plan_type=user.get("plan_type"),
     )
 
 
@@ -51,12 +53,28 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    # Auto-downgrade expired Pro subscriptions on every authenticated request
+    if user.get("is_pro") and user.get("pro_expires_at"):
+        expires_at = user["pro_expires_at"]
+        # pro_expires_at is stored as a naive UTC datetime in MongoDB
+        if datetime.utcnow() > expires_at:
+            await db.users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"is_pro": False}},
+            )
+            user["is_pro"] = False
     return user
 
 
 async def get_admin_user(current_user: dict = Depends(get_current_user)):
     if not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
+async def require_pro(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("is_pro", False):
+        raise HTTPException(status_code=403, detail="Pro subscription required")
     return current_user
 
 

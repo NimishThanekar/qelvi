@@ -12,6 +12,8 @@ interface Props {
   onLogged: () => void;
   defaultMealType?: MealType;
   defaultDate?: string;
+  defaultQuery?: string;
+  defaultView?: ModalView;
 }
 
 type ServingType = "scoop" | "bowl" | "restaurant" | "piece" | "custom";
@@ -74,9 +76,11 @@ export default function FoodSearchModal({
   onLogged,
   defaultMealType = "lunch",
   defaultDate,
+  defaultQuery = "",
+  defaultView = "search",
 }: Props) {
   const { user, refreshUser } = useAuthStore();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(defaultQuery);
   const [category, setCategory] = useState("");
   const [foods, setFoods] = useState<FoodItem[]>([]);
   const [customFoods, setCustomFoods] = useState<FoodItem[]>([]);
@@ -100,8 +104,8 @@ export default function FoodSearchModal({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiLogged, setAiLogged] = useState(false);
 
-  // View: search | my-foods | create
-  const [view, setView] = useState<ModalView>("search");
+  // View: search | my-foods | create | ai
+  const [view, setView] = useState<ModalView>(defaultView);
 
   // Create form state
   const [createMode, setCreateMode] = useState<CreateMode>("simple");

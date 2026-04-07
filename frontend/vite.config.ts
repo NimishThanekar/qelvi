@@ -36,6 +36,13 @@ export default defineConfig({
         ],
         shortcuts: [
           {
+            name: 'AI Meal Logging',
+            short_name: 'AI Log',
+            description: 'Type your meal in plain English or Hindi for instant calorie estimate',
+            url: '/log?mode=ai',
+            icons: [{ src: '/icons/shortcut-ai.png', sizes: '96x96' }],
+          },
+          {
             name: 'Log Breakfast',
             short_name: 'Breakfast',
             url: '/log?meal=breakfast',

@@ -11,6 +11,8 @@ import {
   X,
   MapPin,
   Shield,
+  Zap,
+  Crown,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -86,6 +88,33 @@ export default function Layout() {
           </NavLink>
         )}
       </nav>
+
+      {/* Go Pro / Pro badge */}
+      {user?.is_pro ? (
+        <NavLink
+          to="/upgrade"
+          onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium mb-2 transition-all"
+          style={{ backgroundColor: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}
+        >
+          <Crown size={14} />
+          Pro plan active
+        </NavLink>
+      ) : (
+        <NavLink
+          to="/upgrade"
+          onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold mb-2 transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, rgba(163,230,53,0.08) 0%, rgba(59,123,255,0.08) 100%)",
+            border: "1px solid rgba(163,230,53,0.25)",
+            color: "#a3e635",
+          }}
+        >
+          <Zap size={14} />
+          Go Pro
+        </NavLink>
+      )}
 
       {/* User + logout */}
       <div className="border-t border-bg-border pt-4 mt-4">

@@ -49,6 +49,8 @@ class UserResponse(BaseModel):
     is_admin: Optional[bool] = False
     is_pro: bool = False
     ai_uses_remaining: int = 10
+    pro_expires_at: Optional[str] = None
+    plan_type: Optional[str] = None
 
 
 class Token(BaseModel):
@@ -133,6 +135,20 @@ class AIEstimateResponse(BaseModel):
     total_calories: int
     confidence: str  # "high" | "medium" | "low"
     cached: bool = False
+
+
+class RecommendationItem(BaseModel):
+    food_id: str
+    food_name: str
+    category: str
+    serving_type: str
+    serving_calories: float
+    times_logged: int = 0
+
+
+class RecommendationsResponse(BaseModel):
+    from_history: List[RecommendationItem]
+    suggestions: List[RecommendationItem]
 
 
 class DailySummary(BaseModel):

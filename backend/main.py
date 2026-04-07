@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import connect_db, close_db
-from app.routers import auth, food, logs, groups, custom_foods, ai, notifications
+from app.routers import auth, food, logs, groups, custom_foods, ai, notifications, subscription
 
 app = FastAPI(title="Calorie Tracker API", version="1.0.0")
 
@@ -36,6 +36,7 @@ app.include_router(groups.router)
 app.include_router(custom_foods.router)
 app.include_router(ai.router)
 app.include_router(notifications.router)
+app.include_router(subscription.router)
 
 
 @app.get("/health")

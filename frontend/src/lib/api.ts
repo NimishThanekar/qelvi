@@ -11,12 +11,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Guard: if multiple parallel requests all 401 at once, only redirect once.
+let redirectingToLogin = false;
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+    if (err.response?.status === 401 && !redirectingToLogin) {
+      // Only force-logout when a token was actually sent with the request.
+      // If there's no token, the 401 is expected and should be handled by the caller.
+      const hadToken = !!localStorage.getItem('token');
+      if (hadToken) {
+        redirectingToLogin = true;
+        localStorage.removeItem('token');
+        // Small delay so any in-flight state updates finish before the redirect.
+        setTimeout(() => {
+          redirectingToLogin = false;
+          window.location.href = '/login';
+        }, 50);
+      }
     }
     return Promise.reject(err);
   }
@@ -42,6 +55,8 @@ export const foodApi = {
   categories: () => api.get('/foods/categories'),
   cuisines: () => api.get('/foods/cuisines'),
   getById: (id: string) => api.get(`/foods/${id}`),
+  getRecommendations: (remaining_calories: number, meal_type?: string) =>
+    api.get('/foods/recommendations', { params: { remaining_calories, ...(meal_type ? { meal_type } : {}) } }),
 };
 
 // Logs
@@ -77,6 +92,19 @@ export const groupsApi = {
 export const aiApi = {
   estimate: (text: string, meal_type: string) =>
     api.post('/ai/estimate', { text, meal_type }),
+};
+
+// Subscription / Pro
+export const subscriptionApi = {
+  createOrder: (plan_type: string) =>
+    api.post('/subscription/create-order', { plan_type }),
+  verify: (data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    plan_type: string;
+  }) => api.post('/subscription/verify', data),
+  getStatus: () => api.get('/subscription/status'),
 };
 
 // Admin / Notifications

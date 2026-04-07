@@ -12,6 +12,7 @@ import Profile from './pages/Profile';
 import Groups from './pages/Groups';
 import Insights from './pages/Insights';
 import Admin from './pages/Admin';
+import Upgrade from './pages/Upgrade';
 import InstallBanner from './components/InstallBanner';
 import { setupPushNotifications } from './lib/push';
 
@@ -85,6 +86,7 @@ export default function App() {
           <Route path="insights" element={<Insights />} />
           <Route path="profile" element={<Profile />} />
           <Route path="admin" element={<Admin />} />
+          <Route path="upgrade" element={<Upgrade />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

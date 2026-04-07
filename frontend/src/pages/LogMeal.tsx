@@ -11,11 +11,17 @@ export default function LogMeal() {
   const [searchParams] = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const [mealType, setMealType] = useState<MealType>('lunch');
+  const [openInAiMode, setOpenInAiMode] = useState(false);
 
   useEffect(() => {
-    const param = searchParams.get('meal');
-    if (param && (VALID_MEAL_TYPES as string[]).includes(param)) {
-      setMealType(param as MealType);
+    const meal = searchParams.get('meal');
+    const mode = searchParams.get('mode');
+    if (mode === 'ai') {
+      setOpenInAiMode(true);
+      setShowModal(true);
+    } else if (meal && (VALID_MEAL_TYPES as string[]).includes(meal)) {
+      setOpenInAiMode(false);
+      setMealType(meal as MealType);
       setShowModal(true);
     }
   }, [searchParams]);
@@ -60,9 +66,10 @@ export default function LogMeal() {
 
       {showModal && (
         <FoodSearchModal
-          onClose={() => setShowModal(false)}
+          onClose={() => { setShowModal(false); setOpenInAiMode(false); }}
           onLogged={() => {}}
           defaultMealType={mealType}
+          defaultView={openInAiMode ? 'ai' : 'search'}
         />
       )}
     </div>

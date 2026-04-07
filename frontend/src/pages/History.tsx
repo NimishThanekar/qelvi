@@ -16,7 +16,7 @@ import { logsApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import type { ContextStat } from "../types";
 import { MEAL_CONTEXTS } from "../types";
-import { TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Calendar, Lock } from "lucide-react";
 
 type Range = "7d" | "14d" | "30d";
 
@@ -110,19 +110,30 @@ export default function History() {
           </p>
         </div>
         <div className="flex bg-bg-elevated rounded-xl p-1 gap-1">
-          {(["7d", "14d", "30d"] as Range[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                range === r
-                  ? "bg-accent-primary text-btn-fg"
-                  : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              {r}
-            </button>
-          ))}
+          {(["7d", "14d", "30d"] as Range[]).map((r) => {
+            const requiresPro = r !== "7d";
+            const locked = requiresPro && !user?.is_pro;
+            return (
+              <button
+                key={r}
+                onClick={() => {
+                  if (locked) { window.location.href = "/upgrade"; return; }
+                  setRange(r);
+                }}
+                title={locked ? "Pro feature — upgrade to unlock" : undefined}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  range === r && !locked
+                    ? "bg-accent-primary text-btn-fg"
+                    : locked
+                    ? "text-text-muted opacity-50 cursor-pointer"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
+              >
+                {locked && <Lock size={9} />}
+                {r}
+              </button>
+            );
+          })}
         </div>
       </div>
 

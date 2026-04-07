@@ -202,6 +202,20 @@ export const getCategoryImage = (category: string): string =>
   CATEGORY_IMAGES[category] || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80';
 
 
+export interface RecommendationItem {
+  food_id: string;
+  food_name: string;
+  category: string;
+  serving_type: string;
+  serving_calories: number;
+  times_logged: number;
+}
+
+export interface RecommendationsResponse {
+  from_history: RecommendationItem[];
+  suggestions: RecommendationItem[];
+}
+
 export interface WeeklyWrapData {
   week_start: string;
   week_end: string;

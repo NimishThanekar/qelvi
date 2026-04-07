@@ -12,9 +12,9 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
-import { logsApi } from "../lib/api";
+import { logsApi, foodApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
-import type { DailySummary, MealLog, FrequentFood, DayStatus, ContextStat } from "../types";
+import type { DailySummary, MealLog, FrequentFood, DayStatus, ContextStat, RecommendationItem } from "../types";
 import { MEAL_TYPES, MEAL_CONTEXTS } from "../types";
 import CalorieRing from "../components/CalorieRing";
 import CaloriePace from "../components/CaloriePace";
@@ -63,6 +63,9 @@ export default function Dashboard() {
   const [dismissedMetricsBanner, setDismissedMetricsBanner] = useState(
     () => localStorage.getItem("metrics-banner-dismissed") === "1"
   );
+  const [recommendations, setRecommendations] = useState<{ from_history: RecommendationItem[]; suggestions: RecommendationItem[] } | null>(null);
+  const [recPaywalled, setRecPaywalled] = useState(false);
+  const [modalPrefillQuery, setModalPrefillQuery] = useState("");
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -86,19 +89,49 @@ export default function Dashboard() {
     fetchSummary();
   }, [fetchSummary]);
 
+  const isToday = date === new Date().toISOString().split("T")[0];
+
   useEffect(() => {
     logsApi.frequent().then((r) => setFrequentFoods(r.data)).catch(() => {});
     logsApi.dayStatus().then((r) => setDayStatus(r.data)).catch(() => {});
     logsApi.contextStats().then((r) => setContextStats(r.data)).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!isToday) return;
+    const goal_ = summary?.calorie_goal || user?.calorie_goal || 2000;
+    const consumed_ = summary?.total_calories || 0;
+    const remaining_ = Math.max(0, goal_ - consumed_);
+    const h = new Date().getHours();
+    const inMealWindow = h >= 6 && h < 23;
+    if (remaining_ <= 200 || !inMealWindow) {
+      setRecommendations(null);
+      setRecPaywalled(false);
+      return;
+    }
+    const mt = getCurrentMealType();
+    // Cap to a meal-appropriate calorie target — remaining may be the full day budget
+    // but we want serving-sized suggestions, not foods that would fill 2000+ kcal.
+    const mealTargets: Record<string, number> = {
+      breakfast: 500,
+      lunch: 700,
+      dinner: 700,
+      snack: 300,
+      adhoc: 400,
+    };
+    const target = Math.min(remaining_, mealTargets[mt] ?? 500);
+    foodApi.getRecommendations(Math.round(target), mt)
+      .then((r) => { setRecommendations(r.data); setRecPaywalled(false); })
+      .catch((err) => {
+        if (err?.response?.status === 403) setRecPaywalled(true);
+      });
+  }, [summary, isToday]);
+
   const changeDate = (days: number) => {
     const d = new Date(date);
     d.setDate(d.getDate() + days);
     setDate(d.toISOString().split("T")[0]);
   };
-
-  const isToday = date === new Date().toISOString().split("T")[0];
 
   const handleDelete = async (logId: string) => {
     try {
@@ -323,6 +356,89 @@ export default function Dashboard() {
       {/* Calorie Pace — real-time projection for today */}
       {isToday && consumed > 0 && <CaloriePace consumed={consumed} goal={goal} />}
 
+      {/* What Should I Eat — Pro recommendation card */}
+      {isToday && (recommendations || recPaywalled) && (() => {
+        const chips = recommendations
+          ? [...recommendations.from_history, ...recommendations.suggestions].slice(0, 4)
+          : [];
+        const mt = getCurrentMealType();
+        const mtInfo = MEAL_TYPES.find((m) => m.value === mt);
+        return (
+          <div className="mb-4 card p-4 relative overflow-hidden">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">{mtInfo?.emoji || "🍽️"}</span>
+              <div>
+                <p className="text-sm font-semibold text-text-primary">What should I eat?</p>
+                <p className="text-xs text-text-muted">~{Math.round(remaining)} kcal left · {mtInfo?.label || "Meal"} ideas</p>
+              </div>
+            </div>
+
+            {recPaywalled ? (
+              /* Locked state for free users */
+              <div className="relative">
+                <div className="flex flex-col gap-2 blur-sm pointer-events-none select-none" aria-hidden="true">
+                  {["Dal Makhani", "Grilled Chicken", "Paneer Tikka", "Brown Rice Bowl"].map((name) => (
+                    <div key={name} className="flex items-center justify-between px-3 py-2.5 bg-bg-elevated rounded-xl border border-bg-border">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">{name}</p>
+                        <p className="text-xs text-text-muted">bowl · ~350 kcal</p>
+                      </div>
+                      <button className="text-xs px-3 py-1.5 rounded-lg" style={{ backgroundColor: "rgba(59,123,255,0.15)", color: "#3B7BFF" }}>
+                        Log This
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl" style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.92) 35%)" }}>
+                  <p className="text-2xl mb-2">🔒</p>
+                  <p className="text-sm font-semibold text-text-primary mb-1">Pro feature</p>
+                  <p className="text-xs text-text-muted mb-3 text-center max-w-[200px]">
+                    Personalised meal suggestions based on your calorie budget
+                  </p>
+                  <a
+                    href="/upgrade"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold"
+                    style={{ backgroundColor: "#a78bfa", color: "#fff" }}
+                  >
+                    Upgrade to Pro
+                  </a>
+                </div>
+              </div>
+            ) : chips.length === 0 ? null : (
+              <div className="flex flex-col gap-2">
+                {chips.map((item) => (
+                  <div
+                    key={item.food_id}
+                    className="flex items-center justify-between px-3 py-2.5 bg-bg-elevated rounded-xl border border-bg-border"
+                  >
+                    <div className="min-w-0 flex-1 mr-3">
+                      <p className="text-sm font-medium text-text-primary truncate">{item.food_name}</p>
+                      <p className="text-xs text-text-muted">
+                        {item.serving_type} · {Math.round(item.serving_calories)} kcal
+                        {item.times_logged > 0 && (
+                          <span className="ml-1.5 text-accent-primary">· logged {item.times_logged}×</span>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveMealType(mt as any);
+                        setModalPrefillQuery(item.food_name);
+                        setShowModal(true);
+                      }}
+                      className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ backgroundColor: "rgba(59,123,255,0.15)", color: "#3B7BFF" }}
+                    >
+                      Log This
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Recovery Mode Banner — context-aware */}
       {dayStatus?.recovery_day && (() => {
         const ctxInfo = dayStatus.yesterday_context
@@ -482,10 +598,11 @@ export default function Dashboard() {
 
       {showModal && (
         <FoodSearchModal
-          onClose={() => setShowModal(false)}
+          onClose={() => { setShowModal(false); setModalPrefillQuery(""); }}
           onLogged={fetchSummary}
           defaultMealType={activeMealType}
           defaultDate={date}
+          defaultQuery={modalPrefillQuery}
         />
       )}
 
