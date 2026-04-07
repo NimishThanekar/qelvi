@@ -1,13 +1,10 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, Users, Flame, Lock } from "lucide-react";
+import { Copy, Check, Users, Flame } from "lucide-react";
 import { groupsApi } from "../lib/api";
-import { useAuthStore } from "../store/authStore";
 import type { Buddy } from "../types";
 import toast from "react-hot-toast";
 
 export default function Groups() {
-  const { user } = useAuthStore();
-  const isPro = user?.is_pro;
   const [buddy, setBuddy] = useState<Buddy | null>(null);
   const [loading, setLoading] = useState(true);
   const [joinCode, setJoinCode] = useState("");
