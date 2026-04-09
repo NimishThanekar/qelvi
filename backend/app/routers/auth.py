@@ -19,6 +19,7 @@ from google.auth.transport import requests as google_requests
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 # ── In-memory user cache (per-process, 60-second TTL) ────────────────────────
 # Avoids a MongoDB round-trip on every authenticated request.
@@ -48,6 +49,27 @@ def _get_client_ip(request: Request) -> str:
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+async def get_optional_current_user(token: Optional[str] = Depends(oauth2_scheme_optional)) -> "dict | None":
+    """Same as get_current_user but returns None instead of 401 for missing/invalid tokens."""
+    if not token:
+        return None
+    db = get_db()
+    payload = decode_token_full(token)
+    if not payload:
+        return None
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+    cached = _get_cached_user(user_id)
+    if cached is not None:
+        return cached
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return None
+    _set_cached_user(user_id, user)
+    return user
 
 
 _REFERRAL_CHARS = string.ascii_uppercase + string.digits
