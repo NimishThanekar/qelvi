@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.schemas import UserRegister, UserLogin, UserUpdate, UserResponse, FestivalAdjustment, Token, PasswordChange
 from app.services.auth import (
     verify_password, hash_password, create_access_token,
-    decode_token, decode_token_full, calculate_bmr, calculate_tdee
+    decode_token_full, calculate_bmr, calculate_tdee
 )
 import os
 from google.oauth2 import id_token
@@ -149,8 +149,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     password_changed_at = user.get("password_changed_at")
     if iat and password_changed_at:
         token_issued = datetime.utcfromtimestamp(iat) if isinstance(iat, (int, float)) else iat
-        if isinstance(token_issued, datetime) and token_issued < password_changed_at:
-            raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+        if isinstance(token_issued, datetime) and isinstance(password_changed_at, datetime):
+            # Normalize both to naive UTC to prevent TypeError on timezone-aware comparison
+            ti = token_issued.replace(tzinfo=None)
+            pc = password_changed_at.replace(tzinfo=None)
+            if ti < pc:
+                raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
 
     # ── Auto-downgrade expired Pro subscriptions ──────────────────────
     if user.get("is_pro") and user.get("pro_expires_at"):
