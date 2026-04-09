@@ -271,10 +271,31 @@ async def register(data: UserRegister):
 @router.post("/login", response_model=Token)
 async def login(data: UserLogin):
     db = get_db()
+
+    # ── Rate limit: 5 failed attempts per email per 15-minute window ──
+    attempt_doc = await db.login_attempts.find_one({"email": data.email})
+    if attempt_doc and attempt_doc.get("attempt_count", 0) >= 5:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Try again in 15 minutes.",
+        )
+
     user = await db.users.find_one({"email": data.email})
     if not user or not verify_password(data.password, user["password"]):
+        # Record the failed attempt (upsert: set first_attempt_at only on insert)
+        await db.login_attempts.update_one(
+            {"email": data.email},
+            {
+                "$inc": {"attempt_count": 1},
+                "$setOnInsert": {"first_attempt_at": datetime.utcnow()},
+            },
+            upsert=True,
+        )
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
+
+    # Successful login — clear failed-attempt counter
+    await db.login_attempts.delete_one({"email": data.email})
+
     token = create_access_token({"sub": str(user["_id"])})
     return Token(access_token=token, token_type="bearer", user=format_user(user))
 
