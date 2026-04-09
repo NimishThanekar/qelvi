@@ -23,7 +23,10 @@ api.interceptors.response.use(
       const hadToken = !!localStorage.getItem('token');
       if (hadToken) {
         redirectingToLogin = true;
+        // Clear raw token AND the Zustand persist blob so rehydration
+        // doesn't re-write the invalid token back into localStorage.
         localStorage.removeItem('token');
+        localStorage.removeItem('auth-storage');
         // Small delay so any in-flight state updates finish before the redirect.
         setTimeout(() => {
           redirectingToLogin = false;
@@ -78,6 +81,7 @@ export const logsApi = {
   contextInsights: () => api.get('/logs/context-insights'),
   weeklyWrap: (weekStart?: string) =>
     api.get('/logs/weekly-wrap', { params: weekStart ? { week_start: weekStart } : {} }),
+  getFoodPersonality: () => api.get('/logs/food-personality'),
 };
 
 // Buddy system
@@ -107,6 +111,15 @@ export const subscriptionApi = {
   getStatus: () => api.get('/subscription/status'),
 };
 
+// Festivals
+export const festivalsApi = {
+  active: (country?: string) =>
+    api.get('/festivals/active', country ? { params: { country } } : {}),
+  foods: (festivalId: string) =>
+    api.get(`/festivals/${festivalId}/foods`),
+  history: () => api.get('/festivals/history'),
+};
+
 // Admin / Notifications
 export const adminApi = {
   pushStats: () => api.get('/notifications/stats'),
@@ -122,5 +135,26 @@ export const customFoodsApi = {
   create: (data: { name: string; calories_per_serving: number; serving_size_g?: number; combo_items?: any[] }) =>
     api.post('/custom-foods/', data),
   delete: (id: string) => api.delete(`/custom-foods/${id}`),
+};
+
+// Referral
+export const referralApi = {
+  stats: () => api.get('/referral/stats'),
+};
+
+// Practitioner Portal
+export const practitionerApi = {
+  overview: () => api.get('/practitioner/overview'),
+  patients: () => api.get('/practitioner/patients'),
+  patientSummary: (id: string) => api.get(`/practitioner/patients/${id}/summary`),
+  patientLogs: (id: string, start: string, end: string) =>
+    api.get(`/practitioner/patients/${id}/logs`, { params: { start, end } }),
+  patientReport: (id: string, days?: number) =>
+    api.get(`/practitioner/patients/${id}/report`, { params: days ? { days } : {} }),
+  downloadReport: (id: string, days = 30) =>
+    api.get(`/practitioner/patients/${id}/download-report`, {
+      params: { days },
+      responseType: 'blob',
+    }),
 };
 
