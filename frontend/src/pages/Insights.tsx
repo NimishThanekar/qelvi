@@ -4,9 +4,9 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, Cell, ReferenceLine,
 } from "recharts";
-import { logsApi } from "../lib/api";
+import { logsApi, festivalsApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
-import type { ContextInsightFull } from "../types";
+import type { ContextInsightFull, FestivalHistory } from "../types";
 import { MEAL_CONTEXTS } from "../types";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -354,12 +354,176 @@ function ContextCard({ insight, goal, isWorst, isBest }: {
   );
 }
 
+// ── Festival History helpers ───────────────────────────────────────────────
+
+function festivalInsightText(h: FestivalHistory): string {
+  const year = new Date(h.start_date).getFullYear();
+  const name = h.festival_name;
+
+  if (h.delta_pct === null || h.avg_before === null) {
+    if (h.avg_during < 1400) {
+      const pctBelow = Math.round((1 - h.avg_during / 2000) * 100);
+      return `${name} ${year} fasting averaged ${h.avg_during} kcal/day — ${pctBelow}% below typical intake.`;
+    }
+    return `You averaged ${h.avg_during} kcal/day during ${name} ${year}.`;
+  }
+
+  const pct = Math.round(Math.abs(h.delta_pct));
+
+  if (h.delta_pct <= -10) {
+    return `This ${name} you ate ${pct}% less than the baseline — great control! 🎯`;
+  }
+  if (h.delta_pct <= 5) {
+    return `${name} ${year} — you maintained your usual intake. Solid discipline! 👏`;
+  }
+  if (h.excess_calories && h.delta_pct <= 25) {
+    return `${name} added ~${Math.round(h.excess_calories).toLocaleString()} extra kcal — a moderate indulgence.`;
+  }
+  if (h.excess_calories) {
+    return `${name} added ~${Math.round(h.excess_calories).toLocaleString()} extra kcal. Watch the pattern next year! 💪`;
+  }
+  return `You ate ${pct}% more than usual during ${name} ${year}.`;
+}
+
+function deltaColor(delta: number | null): string {
+  if (delta === null) return "#94a3b8";
+  if (delta <= 5) return "#34d399";
+  if (delta <= 20) return "#fb923c";
+  return "#f87171";
+}
+
+function formatDateRange(start: string, end: string): string {
+  const s = new Date(start);
+  const e = new Date(end);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const sm = months[s.getMonth()];
+  const em = months[e.getMonth()];
+  const sy = s.getFullYear();
+  const ey = e.getFullYear();
+  if (sy === ey && sm === em) return `${sm} ${s.getDate()}–${e.getDate()}, ${sy}`;
+  if (sy === ey) return `${sm} ${s.getDate()} – ${em} ${e.getDate()}, ${sy}`;
+  return `${sm} ${s.getDate()}, ${sy} – ${em} ${e.getDate()}, ${ey}`;
+}
+
+/** Mini two-bar comparison: Before vs During */
+function FestivalCalBars({ h, goal }: { h: FestivalHistory; goal: number }) {
+  const during = h.avg_during;
+  const before = h.avg_before;
+  const maxVal = Math.max(during, before ?? 0, goal, 1);
+  const duringPct = Math.min((during / maxVal) * 100, 100);
+  const beforePct = before !== null ? Math.min((before / maxVal) * 100, 100) : 0;
+  const dc = deltaColor(h.delta_pct);
+
+  return (
+    <div className="space-y-1.5">
+      {before !== null && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-text-muted w-12 flex-shrink-0">Before</span>
+          <div className="flex-1 bg-bg-border rounded-full h-2">
+            <div className="h-2 rounded-full bg-[#475569]" style={{ width: `${beforePct}%` }} />
+          </div>
+          <span className="text-[10px] text-text-muted w-14 text-right flex-shrink-0">{before} kcal</span>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-text-muted w-12 flex-shrink-0">During</span>
+        <div className="flex-1 bg-bg-border rounded-full h-2">
+          <div className="h-2 rounded-full" style={{ width: `${duringPct}%`, backgroundColor: dc }} />
+        </div>
+        <span className="text-[10px] font-medium w-14 text-right flex-shrink-0" style={{ color: dc }}>
+          {during} kcal
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FestivalHistoryCard({ h, yoyText, goal }: { h: FestivalHistory; yoyText?: string; goal: number }) {
+  const dc = deltaColor(h.delta_pct);
+  const insightText = festivalInsightText(h);
+
+  return (
+    <div className="card p-4">
+      {/* Header */}
+      <div className="flex items-start gap-3 mb-3">
+        <span className="text-2xl flex-shrink-0">{h.emoji}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-text-primary">{h.festival_name}</p>
+            {h.delta_pct !== null && (
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: dc + "18", color: dc }}
+              >
+                {h.delta_pct > 0 ? "+" : ""}{Math.round(h.delta_pct)}% vs baseline
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-text-muted mt-0.5">{formatDateRange(h.start_date, h.end_date)}</p>
+          <p className="text-[10px] text-text-muted">{h.days_logged} day{h.days_logged !== 1 ? "s" : ""} logged</p>
+        </div>
+      </div>
+
+      {/* Mini bars */}
+      <FestivalCalBars h={h} goal={goal} />
+
+      {/* Insight line */}
+      <p className="text-xs text-text-muted mt-3 leading-snug">{insightText}</p>
+
+      {/* Year-over-year comparison */}
+      {yoyText && (
+        <p className="text-[10px] mt-2 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: "#34d39912", color: "#34d399" }}>
+          {yoyText}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Compute year-over-year comparison strings keyed by festival_id */
+function buildYoyMap(history: FestivalHistory[]): Map<string, string> {
+  const map = new Map<string, string>();
+  const grouped: Record<string, FestivalHistory[]> = {};
+
+  history.forEach((h) => {
+    const key = h.festival_name.toLowerCase();
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(h);
+  });
+
+  for (const entries of Object.values(grouped)) {
+    if (entries.length < 2) continue;
+    entries.sort((a, b) => b.start_date.localeCompare(a.start_date));
+    const latest = entries[0];
+    const prior = entries[1];
+
+    if (latest.delta_pct === null || prior.delta_pct === null) continue;
+    const latestYear = new Date(latest.start_date).getFullYear();
+    const priorYear = new Date(prior.start_date).getFullYear();
+    const diff = Math.round(latest.delta_pct - prior.delta_pct);
+
+    let text: string;
+    if (diff <= -8) {
+      text = `${latest.festival_name} ${latestYear} vs ${priorYear}: You ate ${Math.abs(diff)}% less this year 🎉`;
+    } else if (diff >= 8) {
+      text = `${latest.festival_name} ${latestYear} vs ${priorYear}: You ate ${diff}% more than last year.`;
+    } else {
+      text = `${latest.festival_name} ${latestYear} vs ${priorYear}: Similar intake to last year.`;
+    }
+    map.set(latest.festival_id, text);
+  }
+
+  return map;
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function Insights() {
   const { user } = useAuthStore();
   const [insights, setInsights] = useState<ContextInsightFull[]>([]);
   const [loading, setLoading] = useState(true);
+  const [festHistory, setFestHistory] = useState<FestivalHistory[]>([]);
+  const [festLoading, setFestLoading] = useState(true);
 
   const isPro = user?.is_pro ?? false;
   const goal = user?.calorie_goal ?? 2000;
@@ -369,6 +533,10 @@ export default function Insights() {
       .then((r) => setInsights(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
+    festivalsApi.history()
+      .then((r) => setFestHistory(r.data))
+      .catch(() => {})
+      .finally(() => setFestLoading(false));
   }, []);
 
   const eligible = insights.filter((i) => i.count >= 2);
@@ -378,6 +546,8 @@ export default function Insights() {
   const best = eligible.length >= 2
     ? eligible.reduce((a, b) => (a.over_goal_pct < b.over_goal_pct ? a : b))
     : null;
+
+  const yoyMap = buildYoyMap(festHistory);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto pb-20 md:pb-6">
@@ -434,6 +604,77 @@ export default function Insights() {
             {!isPro && <PaywallOverlay />}
           </div>
         </>
+      )}
+
+      {/* ── Festival History ──────────────────────────────────────── */}
+      {(festLoading || festHistory.length > 0) && (
+        <div className="mt-8">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-text-primary">Festival History</h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              How past festivals affected your calorie intake
+            </p>
+          </div>
+
+          {festLoading ? (
+            <div className="flex items-center justify-center py-10 text-text-muted text-sm">
+              Loading…
+            </div>
+          ) : (
+            <div className="relative">
+              {/* First card always visible */}
+              {festHistory.length > 0 && (
+                <FestivalHistoryCard
+                  h={festHistory[0]}
+                  yoyText={yoyMap.get(festHistory[0].festival_id)}
+                  goal={goal}
+                />
+              )}
+
+              {/* Remaining cards — Pro-gated */}
+              {festHistory.length > 1 && (
+                <div className="relative mt-3">
+                  <div
+                    className={`space-y-3${!isPro ? " pointer-events-none select-none" : ""}`}
+                    style={!isPro ? { filter: "blur(3px)", opacity: 0.5 } : {}}
+                  >
+                    {festHistory.slice(1).map((h) => (
+                      <FestivalHistoryCard
+                        key={h.festival_id}
+                        h={h}
+                        yoyText={yoyMap.get(h.festival_id)}
+                        goal={goal}
+                      />
+                    ))}</div>
+
+                  {!isPro && (
+                    <div
+                      className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl"
+                      style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.95) 25%)" }}
+                    >
+                      <div className="text-center px-6 mt-16">
+                        <div className="text-2xl mb-2">🔒</div>
+                        <p className="text-sm font-semibold text-text-primary mb-1">Pro feature</p>
+                        <p className="text-xs text-text-muted mb-3 max-w-xs">
+                          Full festival history with year-over-year comparisons available on Pro.
+                        </p>
+                        <a
+                          href="/upgrade"
+                          className="inline-block px-4 py-2 rounded-xl text-xs font-semibold"
+                          style={{ backgroundColor: "#a78bfa", color: "#fff" }}
+                        >
+                          Upgrade to Pro
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

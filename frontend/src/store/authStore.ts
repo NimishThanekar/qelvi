@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi } from '../lib/api';
+import type { FestivalAdjustment } from '../types';
+
+export type { FestivalAdjustment };
 
 export interface User {
   id: string;
@@ -20,6 +23,15 @@ export interface User {
   ai_uses_remaining?: number;
   pro_expires_at?: string;
   plan_type?: string;
+  country?: string;
+  festival_mode?: string;
+  festival_adjustment?: FestivalAdjustment | null;
+  referral_code?: string;
+  role?: string;
+  is_practitioner?: boolean;
+  practitioner_id?: string;
+  practitioner_consent?: boolean;
+  practitioner_name?: string;
 }
 
 interface AuthState {

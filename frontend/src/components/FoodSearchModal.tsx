@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, Search, Plus, Minus, ChevronLeft, Trash2, Star, Sparkles, RotateCcw } from "lucide-react";
 import Fuse from "fuse.js";
-import { foodApi, logsApi, customFoodsApi, aiApi } from "../lib/api";
-import type { FoodItem, MealType, ContextStat, AIEstimateItem, FrequentFood } from "../types";
+import { foodApi, logsApi, customFoodsApi, aiApi, festivalsApi } from "../lib/api";
+import type { FoodItem, MealType, ContextStat, AIEstimateItem, FrequentFood, FestivalInfo, FestivalFoodItem } from "../types";
 import { MEAL_TYPES, MEAL_CONTEXTS, getCategoryImage } from "../types";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
@@ -14,6 +14,8 @@ interface Props {
   defaultDate?: string;
   defaultQuery?: string;
   defaultView?: ModalView;
+  activeFestival?: FestivalInfo | null;
+  festivalMode?: string;
 }
 
 type ServingType = "scoop" | "bowl" | "restaurant" | "piece" | "custom";
@@ -78,6 +80,8 @@ export default function FoodSearchModal({
   defaultDate,
   defaultQuery = "",
   defaultView = "search",
+  activeFestival = null,
+  festivalMode = "awareness",
 }: Props) {
   const { user, refreshUser } = useAuthStore();
   const [query, setQuery] = useState(defaultQuery);
@@ -118,6 +122,11 @@ export default function FoodSearchModal({
   const [comboSearching, setComboSearching] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  // Festival foods state
+  const [festivalFoods, setFestivalFoods] = useState<FestivalFoodItem[]>([]);
+  const [festivalSectionExpanded, setFestivalSectionExpanded] = useState(true);
+  const [showAllFestivalFoods, setShowAllFestivalFoods] = useState(false);
+
   const today = new Date().toISOString().split("T")[0];
   const [date, setDate] = useState(defaultDate || today);
 
@@ -131,6 +140,10 @@ export default function FoodSearchModal({
       r.data.forEach((s: ContextStat) => { map[s.context] = s; });
       setContextStatsMap(map);
     }).catch(() => {});
+    // Fetch festival foods if a festival is active
+    if (activeFestival && festivalMode !== "off") {
+      festivalsApi.foods(activeFestival.id).then((r) => setFestivalFoods(r.data)).catch(() => {});
+    }
   }, []);
 
   const searchFoods = useCallback(async (q: string, cat = "", mt = "") => {
@@ -460,6 +473,22 @@ export default function FoodSearchModal({
     });
     return fuse.search(query.trim()).map((r) => r.item);
   })();
+
+  // Convert a festival food item to FoodItem format for selection
+  const festivalFoodAsItem = (ff: FestivalFoodItem): FoodItem => ({
+    id: ff.id,
+    item: ff.name,
+    category: ff.category,
+    cuisine: ff.cuisine,
+    kcal_per_100g: ff.kcal_per_100g,
+    kcal_per_bowl: ff.serving_calories ?? undefined,
+    bowl_g: ff.serving_calories ? 100 : undefined,
+  });
+
+  // Show festival section: full grid when no query + expanded; mini chip otherwise
+  const showFestivalFull = activeFestival && festivalMode !== "off" && festivalFoods.length > 0 && !query && festivalSectionExpanded;
+  const showFestivalChip = activeFestival && festivalMode !== "off" && festivalFoods.length > 0 && (!festivalSectionExpanded || !!query);
+  const visibleFestivalFoods = showAllFestivalFoods ? festivalFoods : festivalFoods.slice(0, 8);
 
   // ── Left panel content ───────────────────────────────────────────
   const renderLeftPanel = () => {
@@ -933,6 +962,69 @@ export default function FoodSearchModal({
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto px-3 pb-3">
+          {/* Festival foods — full grid */}
+          {showFestivalFull && activeFestival && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between px-1 py-2">
+                <p className="text-[10px] font-medium uppercase tracking-wider flex items-center gap-1" style={{ color: activeFestival.color_accent }}>
+                  {activeFestival.emoji} {activeFestival.name} Foods
+                </p>
+                <button
+                  onClick={() => setFestivalSectionExpanded(false)}
+                  className="text-[10px] text-text-muted hover:text-text-secondary transition-colors"
+                >
+                  Hide
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 mb-1">
+                {visibleFestivalFoods.map((ff) => (
+                  <button
+                    key={ff.id}
+                    onClick={() => selectFood(festivalFoodAsItem(ff))}
+                    className="flex items-center gap-2 p-2.5 rounded-xl text-left transition-all hover:bg-bg-elevated border"
+                    style={{ borderColor: `${activeFestival.color_accent}30` }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-text-primary font-medium truncate">{ff.name}</p>
+                      <p className="text-[10px] text-text-muted truncate">{ff.category}</p>
+                      {ff.serving_calories && (
+                        <p className="text-[10px]" style={{ color: activeFestival.color_accent }}>{ff.serving_calories} kcal</p>
+                      )}
+                    </div>
+                    <div
+                      className="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center font-bold text-sm"
+                      style={{ backgroundColor: `${activeFestival.color_accent}20`, color: activeFestival.color_accent }}
+                    >
+                      +
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {festivalFoods.length > 8 && (
+                <button
+                  onClick={() => setShowAllFestivalFoods((v) => !v)}
+                  className="w-full text-center text-[10px] text-text-muted hover:text-text-secondary py-1.5 transition-colors"
+                >
+                  {showAllFestivalFoods ? "Show fewer" : `See all ${festivalFoods.length} festival foods`}
+                </button>
+              )}
+              <div className="border-t border-bg-elevated mt-2 mb-2" />
+            </div>
+          )}
+
+          {/* Festival foods — mini chip when collapsed or query active */}
+          {showFestivalChip && activeFestival && (
+            <button
+              onClick={() => { setFestivalSectionExpanded(true); }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl mb-2 text-xs transition-all"
+              style={{ backgroundColor: `${activeFestival.color_accent}10`, border: `1px solid ${activeFestival.color_accent}30`, color: activeFestival.color_accent }}
+            >
+              <span>{activeFestival.emoji}</span>
+              <span className="font-medium">{activeFestival.name} foods available</span>
+              <span className="ml-auto text-text-muted">↑ Show</span>
+            </button>
+          )}
+
           {/* Recently logged section — shown only when query is empty */}
           {!query && !searching && recentFoods.length > 0 && (
             <div className="mb-3">

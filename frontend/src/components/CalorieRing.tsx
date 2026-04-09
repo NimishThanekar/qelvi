@@ -4,16 +4,18 @@ interface CalorieRingProps {
   consumed: number;
   goal: number;
   size?: number;
+  accentColor?: string;
 }
 
-export default function CalorieRing({ consumed, goal, size = 160 }: CalorieRingProps) {
+export default function CalorieRing({ consumed, goal, size = 160, accentColor }: CalorieRingProps) {
   const pct = goal > 0 ? Math.min(consumed / goal, 1) : 0;
   const r = 46;
   const circumference = 2 * Math.PI * r;
   const strokeDash = pct * circumference;
   const over = consumed > goal && goal > 0;
 
-  const color = over ? '#f87171' : pct > 0.8 ? '#fb923c' : ACCENT;
+  const baseColor = accentColor || ACCENT;
+  const color = over ? '#f87171' : pct > 0.8 ? '#fb923c' : baseColor;
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>

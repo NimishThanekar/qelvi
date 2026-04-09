@@ -131,6 +131,7 @@ export interface DailySummary {
   calorie_goal?: number;
   meals: MealLog[];
   meal_breakdown: Record<string, number>;
+  festival_adjustment?: FestivalAdjustment | null;
 }
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'adhoc';
@@ -214,6 +215,152 @@ export interface RecommendationItem {
 export interface RecommendationsResponse {
   from_history: RecommendationItem[];
   suggestions: RecommendationItem[];
+}
+
+export interface FestivalAdjustment {
+  festival_id: string;
+  festival_name: string;
+  original_goal: number;
+  adjusted_goal: number;
+  type: string;
+  emoji: string;
+  color_accent: string;
+  ambient_effect: string;
+  description: string;
+  goal_multiplier: number;
+  festival_mode: string;
+  start_date: string;
+  end_date: string;
+}
+
+export interface FestivalInfo {
+  id: string;
+  name: string;
+  country: string;
+  start_date: string;
+  end_date: string;
+  type: string;
+  goal_multiplier: number;
+  emoji: string;
+  color_accent: string;
+  ambient_effect: string;
+  description: string;
+  food_keywords: string[];
+  recovery_days: number;
+}
+
+export interface FestivalRecovery {
+  festival_name: string;
+  festival_emoji: string;
+  ended_date: string;
+  recovery_days_total: number;
+  recovery_day_current: number;
+  excess_calories: number;
+  suggested_daily_reduction: number;
+  suggested_goal: number;
+}
+
+export interface ActiveFestivalsResponse {
+  active: FestivalInfo[];
+  upcoming: FestivalInfo | null;
+  recovery: FestivalRecovery | null;
+}
+
+export interface FoodPersonalityStats {
+  tracked_days: number;
+  avg_daily_calories: number;
+  top_food: string | null;
+  top_context: string | null;
+  consistency_pct: number;
+  calorie_goal: number;
+}
+
+export interface FoodPersonality {
+  personality_type: string;
+  title: string;
+  emoji: string;
+  description: string;
+  stats: FoodPersonalityStats;
+}
+
+export interface FestivalHistory {
+  festival_id: string;
+  festival_name: string;
+  emoji: string;
+  start_date: string;
+  end_date: string;
+  avg_during: number;
+  avg_before: number | null;
+  delta_pct: number | null;
+  excess_calories: number | null;
+  days_logged: number;
+}
+
+/** Alias kept for clarity in recovery-card code */
+export type RecoveryInfo = FestivalRecovery;
+
+export interface FestivalFoodItem {
+  id: string;
+  name: string;
+  category: string;
+  cuisine: string;
+  kcal_per_100g: number;
+  serving_calories: number | null;
+}
+
+export interface ReferralStats {
+  referral_code: string;
+  referral_count: number;
+  total_pro_days_earned: number;
+  is_practitioner: boolean;
+}
+
+export interface PatientListItem {
+  patient_id: string;
+  name: string;
+  email: string;
+  last_active: string | null;
+  days_since_last_log: number | null;
+  is_active: boolean;
+  avg_calories_30d: number | null;
+  calorie_goal: number | null;
+  adherence_rate: number;
+  current_streak: number;
+}
+
+export interface PatientAlert {
+  patient_id: string;
+  name: string;
+  adherence_rate: number;
+  days_since_last_log: number | null;
+}
+
+export interface PractitionerOverview {
+  total_patients: number;
+  active_patients: number;
+  inactive_patients: number;
+  avg_adherence_rate: number;
+  patients_needing_attention: PatientAlert[];
+  top_performing_patients: PatientAlert[];
+}
+
+export interface PatientSummary {
+  patient_id: string;
+  name: string;
+  email: string;
+  calorie_goal: number | null;
+  avg_calories_30d: number | null;
+  avg_calories_7d: number | null;
+  best_day_calories: number | null;
+  worst_day_calories: number | null;
+  days_logged_30d: number;
+  adherence_rate: number;
+  current_streak: number;
+  meal_distribution: Record<string, number>;
+  context_distribution: Record<string, number>;
+  top_foods: { food_name: string; count: number }[];
+  weekly_trend: { week_start: string; week_end: string; avg_calories: number; days_logged: number }[];
+  food_variety_score: number;
 }
 
 export interface WeeklyWrapData {

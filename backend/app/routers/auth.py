@@ -139,7 +139,7 @@ def format_user(user: dict) -> UserResponse:
         calorie_goal=user.get("calorie_goal"),
         bmr=round(bmr, 1) if bmr else None,
         tdee=round(tdee, 1) if tdee else None,
-        is_admin=(role == "admin"),
+        is_admin=_is_admin(user),
         is_pro=user.get("is_pro", False),
         ai_uses_remaining=user.get("ai_uses_remaining", 10),
         pro_expires_at=user["pro_expires_at"].isoformat() if user.get("pro_expires_at") else None,
@@ -201,8 +201,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 def _is_admin(user: dict) -> bool:
-    """True if the user has admin privileges (legacy flag OR canonical role)."""
-    return user.get("is_admin", False) or user.get("role") == "admin"
+    return (
+        user.get("is_admin", False)
+        or user.get("role") in ["admin", "practitioner"]
+    )
 
 
 def _is_practitioner(user: dict) -> bool:

@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import {
   LayoutDashboard,
@@ -15,6 +15,7 @@ import {
   Crown,
 } from "lucide-react";
 import { useState } from "react";
+import FestiveAmbient from "./FestiveAmbient";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -25,10 +26,22 @@ const navItems = [
   { to: "/profile", icon: User, label: "Profile" },
 ];
 
+// Pages where festive ambient effects are shown
+const AMBIENT_ROUTES = ["/dashboard", "/log", "/profile"];
+
 export default function Layout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const festAdj = user?.festival_adjustment;
+  const festMode = user?.festival_mode || "awareness";
+  const showAmbient =
+    festAdj != null &&
+    festMode !== "off" &&
+    festAdj.ambient_effect !== "none" &&
+    AMBIENT_ROUTES.some((r) => location.pathname.startsWith(r));
 
   const handleLogout = () => {
     logout();
@@ -71,6 +84,22 @@ export default function Layout() {
             {label}
           </NavLink>
         ))}
+        {(user?.role === "practitioner" || user?.role === "admin") && (
+          <NavLink
+            to="/practitioner"
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 ${
+                isActive
+                  ? "bg-accent-primary/10 text-accent-primary font-medium"
+                  : "text-text-muted hover:text-text-primary hover:bg-bg-elevated"
+              }`
+            }
+          >
+            <Users size={17} />
+            Patients
+          </NavLink>
+        )}
         {user?.is_admin && (
           <NavLink
             to="/admin"
@@ -181,6 +210,14 @@ export default function Layout() {
             <NavContent />
           </aside>
         </div>
+      )}
+
+      {/* Festive ambient overlay */}
+      {showAmbient && (
+        <FestiveAmbient
+          effect={festAdj!.ambient_effect as any}
+          colorAccent={festAdj!.color_accent}
+        />
       )}
 
       {/* Main content */}

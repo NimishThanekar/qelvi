@@ -1,8 +1,63 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
-import { User, Target, Activity, Utensils, Scale, Save, Bell, BellOff, Crown, Zap } from "lucide-react";
+import { User, Target, Activity, Utensils, Scale, Save, Bell, BellOff, Crown, Zap, Sparkles, Copy, Share2, Gift, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 import { setupPushNotifications, unsubscribePush } from "../lib/push";
+import { referralApi } from "../lib/api";
+
+const COMMON_COUNTRIES = [
+  { code: "IN", name: "India" },
+  { code: "US", name: "United States" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "AE", name: "UAE" },
+  { code: "SG", name: "Singapore" },
+  { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" },
+  { code: "DE", name: "Germany" },
+  { code: "MY", name: "Malaysia" },
+];
+
+const OTHER_COUNTRIES = [
+  { code: "AF", name: "Afghanistan" }, { code: "AR", name: "Argentina" },
+  { code: "BD", name: "Bangladesh" }, { code: "BR", name: "Brazil" },
+  { code: "CN", name: "China" }, { code: "EG", name: "Egypt" },
+  { code: "FR", name: "France" }, { code: "GH", name: "Ghana" },
+  { code: "ID", name: "Indonesia" }, { code: "IT", name: "Italy" },
+  { code: "JP", name: "Japan" }, { code: "KE", name: "Kenya" },
+  { code: "KR", name: "South Korea" }, { code: "LK", name: "Sri Lanka" },
+  { code: "MX", name: "Mexico" }, { code: "NG", name: "Nigeria" },
+  { code: "NL", name: "Netherlands" }, { code: "NP", name: "Nepal" },
+  { code: "NZ", name: "New Zealand" }, { code: "PH", name: "Philippines" },
+  { code: "PK", name: "Pakistan" }, { code: "PT", name: "Portugal" },
+  { code: "QA", name: "Qatar" }, { code: "RU", name: "Russia" },
+  { code: "SA", name: "Saudi Arabia" }, { code: "SE", name: "Sweden" },
+  { code: "TH", name: "Thailand" }, { code: "TR", name: "Turkey" },
+  { code: "TZ", name: "Tanzania" }, { code: "UA", name: "Ukraine" },
+  { code: "VN", name: "Vietnam" }, { code: "ZA", name: "South Africa" },
+  { code: "ZW", name: "Zimbabwe" },
+];
+
+const FESTIVAL_MODES = [
+  {
+    value: "off",
+    icon: "🚫",
+    label: "Off",
+    sublabel: "No festival features",
+  },
+  {
+    value: "awareness",
+    icon: "👀",
+    label: "Awareness",
+    sublabel: "Festival banners, food suggestions, and festive UI — goals unchanged",
+    recommended: true,
+  },
+  {
+    value: "full",
+    icon: "🎯",
+    label: "Full Adjust",
+    sublabel: "Auto-adjusts your calorie goal during festivals + recovery plans after",
+  },
+] as const;
 
 const DIETARY_PREFS = [
   "Vegetarian",
@@ -26,12 +81,22 @@ const ACTIVITY_LEVELS = [
   },
 ];
 
+interface ReferralStats {
+  referral_code: string;
+  referral_count: number;
+  total_pro_days_earned: number;
+  is_practitioner: boolean;
+}
+
 export default function Profile() {
   const { user, updateUser } = useAuthStore();
   const [saving, setSaving] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
+  const [consentLoading, setConsentLoading] = useState(false);
+  const [consentValue, setConsentValue] = useState(user?.practitioner_consent ?? true);
 
   useEffect(() => {
     if (!('Notification' in window)) return;
@@ -43,6 +108,50 @@ export default function Profile() {
         .catch(() => {});
     }
   }, []);
+
+  useEffect(() => {
+    referralApi.stats().then((res) => setReferralStats(res.data)).catch(() => {});
+  }, []);
+  const [country, setCountry] = useState(user?.country || "IN");
+  const [festivalMode, setFestivalMode] = useState<string>(user?.festival_mode || "awareness");
+  const [festivalSaving, setFestivalSaving] = useState(false);
+
+  const handleCountryChange = async (code: string) => {
+    setCountry(code);
+    try {
+      await updateUser({ country: code });
+    } catch {
+      toast.error("Failed to save country");
+    }
+  };
+
+  const handleConsentToggle = async () => {
+    const next = !consentValue;
+    setConsentValue(next);
+    setConsentLoading(true);
+    try {
+      await updateUser({ practitioner_consent: next });
+    } catch {
+      setConsentValue(!next);
+      toast.error("Failed to update data sharing preference");
+    } finally {
+      setConsentLoading(false);
+    }
+  };
+
+  const handleModeChange = async (mode: string) => {
+    if (festivalSaving) return;
+    setFestivalMode(mode);
+    setFestivalSaving(true);
+    try {
+      await updateUser({ festival_mode: mode });
+    } catch {
+      toast.error("Failed to save");
+    } finally {
+      setFestivalSaving(false);
+    }
+  };
+
   const [form, setForm] = useState({
     name: user?.name || "",
     age: user?.age?.toString() || "",
@@ -397,6 +506,187 @@ export default function Profile() {
                 )
               )}
             </div>
+          </div>
+        )}
+
+        {/* Festival Intelligence */}
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles size={15} style={{ color: "#f59e0b" }} />
+            <h3 className="text-sm font-medium text-text-secondary">Festival Intelligence</h3>
+          </div>
+
+          {/* Country */}
+          <div className="mb-4">
+            <label className="label">Country</label>
+            <select
+              className="input"
+              value={country}
+              onChange={(e) => handleCountryChange(e.target.value)}
+            >
+              {COMMON_COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+              <option disabled>──────────────</option>
+              {OTHER_COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-text-muted mt-1.5">
+              Helps us know which festivals matter to you.
+            </p>
+          </div>
+
+          {/* Festival mode cards */}
+          <label className="label mb-2">Festival mode</label>
+          <div className="grid grid-cols-3 gap-2">
+            {FESTIVAL_MODES.map((mode) => {
+              const active = festivalMode === mode.value;
+              return (
+                <button
+                  key={mode.value}
+                  onClick={() => handleModeChange(mode.value)}
+                  disabled={festivalSaving}
+                  className="card-elevated p-3 flex flex-col items-center gap-1.5 rounded-xl border transition-all text-center"
+                  style={{
+                    borderColor: active ? "rgba(163,230,53,0.5)" : "var(--bg-border)",
+                    backgroundColor: active ? "rgba(163,230,53,0.05)" : undefined,
+                    opacity: festivalSaving ? 0.6 : 1,
+                  }}
+                >
+                  <span className="text-xl leading-none">{mode.icon}</span>
+                  <div>
+                    <p className="text-xs font-semibold text-text-primary leading-tight">
+                      {mode.label}
+                    </p>
+                    {"recommended" in mode && mode.recommended && (
+                      <span
+                        className="inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{ backgroundColor: "rgba(163,230,53,0.15)", color: "#a3e635" }}
+                      >
+                        Recommended
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-text-muted leading-tight">
+                    {mode.sublabel}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Refer a Friend */}
+        {referralStats && (
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Gift size={15} style={{ color: "#a3e635" }} />
+              <h3 className="text-sm font-medium text-text-secondary">Refer a Friend</h3>
+            </div>
+            <p className="text-xs text-text-muted mb-4">
+              Share your code — you both get <span className="text-accent-primary font-semibold">7 days of Pro free</span> when they sign up. You can earn up to 35 days total (5 referrals).
+            </p>
+
+            {/* Code row */}
+            <div className="flex items-center gap-2 mb-3">
+              <div
+                className="flex-1 bg-bg-elevated rounded-xl px-4 py-3 font-mono text-xl font-bold tracking-widest text-text-primary text-center"
+                style={{ letterSpacing: "0.25em" }}
+              >
+                {referralStats.referral_code}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(referralStats.referral_code);
+                  toast.success("Code copied!");
+                }}
+                className="flex items-center gap-1.5 px-3 py-3 rounded-xl border border-bg-border text-text-muted hover:text-text-primary hover:border-text-muted transition-all"
+              >
+                <Copy size={15} />
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="flex items-center gap-1.5 text-xs text-text-muted mb-4">
+              <span className="text-text-primary font-semibold">{referralStats.referral_count}</span>
+              {referralStats.referral_count === 1 ? "friend" : "friends"} referred
+              <span className="text-bg-border mx-1">·</span>
+              <span className="text-accent-primary font-semibold">{referralStats.total_pro_days_earned}</span>
+              days of Pro earned
+            </div>
+
+            {/* Share button */}
+            <button
+              onClick={async () => {
+                const code = referralStats.referral_code;
+                const msg = `I'm tracking my calories with Qelvi — it actually understands Indian food! Use my code ${code} when you sign up and we both get 7 days of Pro free. https://qelvi.com/register?ref=${code}`;
+                if (navigator.share) {
+                  try {
+                    await navigator.share({ text: msg });
+                  } catch { /* user cancelled */ }
+                } else {
+                  await navigator.clipboard.writeText(msg);
+                  toast.success("Share message copied to clipboard!");
+                }
+              }}
+              className="btn-ghost w-full flex items-center justify-center gap-2 py-2.5 text-sm"
+            >
+              <Share2 size={14} />
+              Share with friends
+            </button>
+          </div>
+        )}
+
+        {/* Data Sharing — shown only when linked to a practitioner */}
+        {user?.practitioner_id && (
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck size={15} style={{ color: "#38bdf8" }} />
+              <h3 className="text-sm font-medium text-text-secondary">Data Sharing</h3>
+            </div>
+
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-text-primary">
+                  Your nutrition data is shared with{" "}
+                  <span className="font-semibold">
+                    {user.practitioner_name || "your dietician"}
+                  </span>.
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  {consentValue
+                    ? "Your dietician can view your meal logs and reports to give you better dietary advice."
+                    : "Your dietician will no longer be able to see your meal logs or reports. You can re-enable this at any time."}
+                </p>
+              </div>
+
+              {/* Toggle */}
+              <button
+                onClick={handleConsentToggle}
+                disabled={consentLoading}
+                className="flex-shrink-0 relative w-11 h-6 rounded-full transition-all duration-200 focus:outline-none"
+                style={{
+                  backgroundColor: consentValue ? "#38bdf8" : "#374151",
+                  opacity: consentLoading ? 0.6 : 1,
+                }}
+                aria-label={consentValue ? "Disable data sharing" : "Enable data sharing"}
+              >
+                <span
+                  className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200"
+                  style={{ left: consentValue ? "calc(100% - 1.375rem)" : "0.125rem" }}
+                />
+              </button>
+            </div>
+
+            {!consentValue && (
+              <p
+                className="text-xs mt-3 px-3 py-2 rounded-lg"
+                style={{ backgroundColor: "rgba(248,113,113,0.08)", color: "#f87171" }}
+              >
+                Data sharing is off. Your dietician's dashboard shows "Access Revoked" for your account.
+              </p>
+            )}
           </div>
         )}
 

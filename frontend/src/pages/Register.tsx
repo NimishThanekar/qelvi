@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuthStore } from "../store/authStore";
-import { Flame, Eye, EyeOff } from "lucide-react";
+import { Flame, Eye, EyeOff, ChevronDown, ChevronUp, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function Register() {
@@ -10,8 +10,13 @@ export default function Register() {
   const [showPass, setShowPass] = useState(false);
   const { register, googleLogin } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
+  const urlRef = searchParams.get("ref")?.toUpperCase() || "";
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [referralCode, setReferralCode] = useState(urlRef);
+  const [referralOpen, setReferralOpen] = useState(!!urlRef);
+
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,7 +24,12 @@ export default function Register() {
     if (!form.name || !form.email || !form.password) return;
     setLoading(true);
     try {
-      await register({ name: form.name, email: form.email, password: form.password });
+      await register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        ...(referralCode.trim() ? { referral_code: referralCode.trim().toUpperCase() } : {}),
+      });
       toast.success("Account created! Welcome 🎉");
       navigate("/dashboard");
     } catch (err: any) {
@@ -93,6 +103,57 @@ export default function Register() {
                 </button>
               </div>
             </div>
+            {/* Referral code — collapsible */}
+            <div>
+              {urlRef ? (
+                /* Pre-filled from URL — always expanded */
+                <div
+                  className="rounded-xl p-3 border"
+                  style={{ borderColor: "rgba(163,230,53,0.3)", backgroundColor: "rgba(163,230,53,0.06)" }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle size={14} style={{ color: "#a3e635" }} />
+                    <span className="text-xs font-medium" style={{ color: "#a3e635" }}>
+                      You'll both get 30 days of Pro free!
+                    </span>
+                  </div>
+                  <div className="font-mono text-sm font-bold tracking-widest text-text-primary text-center py-1">
+                    {referralCode}
+                  </div>
+                </div>
+              ) : (
+                /* Collapsed trigger */
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setReferralOpen((o) => !o)}
+                    className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors w-full"
+                  >
+                    {referralOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    Have a referral code?
+                  </button>
+                  {referralOpen && (
+                    <div className="mt-2">
+                      <input
+                        className="input font-mono tracking-widest uppercase text-center"
+                        value={referralCode}
+                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                        placeholder="XXXXXX"
+                        maxLength={8}
+                        autoComplete="off"
+                      />
+                      {referralCode.trim().length >= 6 && (
+                        <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#a3e635" }}>
+                          <CheckCircle size={11} />
+                          You'll both get 30 days of Pro free!
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={loading || !form.name || !form.email || !form.password}

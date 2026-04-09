@@ -11,15 +11,17 @@ import {
   Coffee,
   RotateCcw,
   X,
+  Sparkles,
 } from "lucide-react";
-import { logsApi, foodApi } from "../lib/api";
+import { logsApi, foodApi, festivalsApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
-import type { DailySummary, MealLog, FrequentFood, DayStatus, ContextStat, RecommendationItem } from "../types";
+import type { DailySummary, MealLog, FrequentFood, DayStatus, ContextStat, RecommendationItem, FoodPersonality, ActiveFestivalsResponse, FestivalFoodItem } from "../types";
 import { MEAL_TYPES, MEAL_CONTEXTS } from "../types";
 import CalorieRing from "../components/CalorieRing";
 import CaloriePace from "../components/CaloriePace";
 import WeeklyWrap from "../components/WeeklyWrap";
 import ContextInsightsCard from "../components/ContextInsightsCard";
+import FoodPersonalityCard from "../components/FoodPersonalityCard";
 import FoodSearchModal from "../components/FoodSearchModal";
 import toast from "react-hot-toast";
 
@@ -66,6 +68,16 @@ export default function Dashboard() {
   const [recommendations, setRecommendations] = useState<{ from_history: RecommendationItem[]; suggestions: RecommendationItem[] } | null>(null);
   const [recPaywalled, setRecPaywalled] = useState(false);
   const [modalPrefillQuery, setModalPrefillQuery] = useState("");
+  const [personality, setPersonality] = useState<FoodPersonality | null>(null);
+  const [showPersonalityCard, setShowPersonalityCard] = useState(false);
+
+  // Festival state
+  const [festivalData, setFestivalData] = useState<ActiveFestivalsResponse | null>(null);
+  const [festivalFoods, setFestivalFoods] = useState<FestivalFoodItem[]>([]);
+  const [teaserDismissedIds, setTeaserDismissedIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("dismissed-festival-teasers") || "[]"); }
+    catch { return []; }
+  });
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -95,6 +107,19 @@ export default function Dashboard() {
     logsApi.frequent().then((r) => setFrequentFoods(r.data)).catch(() => {});
     logsApi.dayStatus().then((r) => setDayStatus(r.data)).catch(() => {});
     logsApi.contextStats().then((r) => setContextStats(r.data)).catch(() => {});
+    logsApi.getFoodPersonality().then((r) => setPersonality(r.data)).catch(() => {});
+    // Festival data — skip entirely if user opted out
+    const festMode = user?.festival_mode || "awareness";
+    if (festMode !== "off") {
+      festivalsApi.active(user?.country).then((r) => {
+        setFestivalData(r.data);
+        if (r.data.active.length > 0) {
+          festivalsApi.foods(r.data.active[0].id)
+            .then((fr) => setFestivalFoods(fr.data))
+            .catch(() => {});
+        }
+      }).catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -220,6 +245,55 @@ export default function Dashboard() {
   const remaining = Math.max(0, goal - consumed);
   const pct = goal > 0 ? Math.min((consumed / goal) * 100, 100) : 0;
 
+  const festMode = user?.festival_mode || "awareness";
+  const activeFestival = festivalData?.active[0] ?? null;
+  const upcomingFestival = festivalData?.upcoming ?? null;
+  const recovery = festivalData?.recovery ?? null;
+
+  const upcomingDaysUntil = upcomingFestival
+    ? Math.ceil((new Date(upcomingFestival.start_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000)
+    : null;
+  const teaserVisible =
+    upcomingFestival &&
+    upcomingDaysUntil !== null &&
+    upcomingDaysUntil >= 0 &&
+    upcomingDaysUntil <= 7 &&
+    !teaserDismissedIds.includes(upcomingFestival.id);
+
+  const dismissTeaser = (id: string) => {
+    const next = [...teaserDismissedIds, id];
+    localStorage.setItem("dismissed-festival-teasers", JSON.stringify(next));
+    setTeaserDismissedIds(next);
+  };
+
+  // Festival-adjusted calorie ring color
+  const ringAccentColor = activeFestival ? activeFestival.color_accent : undefined;
+
+  // Log a festival food directly (one-tap from banner chips)
+  const logFestivalFood = async (food: FestivalFoodItem) => {
+    const cal = food.serving_calories ?? Math.round(food.kcal_per_100g);
+    try {
+      await logsApi.create({
+        date,
+        meal_type: getCurrentMealType(),
+        entries: [{
+          food_id: food.id,
+          food_name: food.name,
+          category: food.category,
+          cuisine: food.cuisine,
+          serving_type: "bowl",
+          quantity: 1,
+          weight_g: 100,
+          calories: cal,
+        }],
+      });
+      toast.success(`Logged ${food.name} — ${Math.round(cal)} kcal`);
+      fetchSummary();
+    } catch {
+      toast.error("Failed to log");
+    }
+  };
+
   const dateLabel = isToday
     ? "Today"
     : date === new Date(Date.now() - 86400000).toISOString().split("T")[0]
@@ -261,6 +335,36 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Pre-festival teaser card — upcoming within 7 days */}
+      {teaserVisible && upcomingFestival && upcomingDaysUntil !== null && (
+        <div
+          className="mb-4 card p-4 flex items-start gap-3"
+          style={{ borderLeftColor: upcomingFestival.color_accent, borderLeftWidth: "4px" }}
+        >
+          <span className="text-2xl flex-shrink-0">{upcomingFestival.emoji}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-text-primary">
+              {upcomingFestival.name} is in {upcomingDaysUntil === 0 ? "less than a day" : `${upcomingDaysUntil} day${upcomingDaysUntil !== 1 ? "s" : ""}`}
+            </p>
+            <p className="text-xs text-text-muted mt-0.5">{upcomingFestival.description}</p>
+            {festMode === "full" && (
+              <p className="text-xs mt-1" style={{ color: upcomingFestival.color_accent }}>
+                Your goal will adjust to {Math.round((user?.calorie_goal || 2000) * upcomingFestival.goal_multiplier)} kcal.
+              </p>
+            )}
+            <a href="/profile" className="text-xs text-text-muted hover:text-text-secondary mt-1 inline-block">
+              Festival settings →
+            </a>
+          </div>
+          <button
+            onClick={() => dismissTeaser(upcomingFestival.id)}
+            className="flex-shrink-0 p-1 text-text-muted hover:text-text-secondary transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Metrics banner — shown when no body metrics set */}
       {!dismissedMetricsBanner && !user?.weight_kg && (
         <div className="mb-4 card p-3 flex items-center gap-3" style={{ borderColor: "rgba(59,123,255,0.2)", backgroundColor: "rgba(59,123,255,0.06)" }}>
@@ -290,16 +394,17 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {/* Calorie ring card — with ambient glow */}
         <div className="card p-5 flex flex-col items-center col-span-1 relative">
-          {/* Ambient glow blob behind the ring */}
+          {/* Ambient glow blob behind the ring — uses festival color when active */}
           <div
             className="absolute inset-0 pointer-events-none rounded-2xl animate-ambient"
             style={{
-              background:
-                "radial-gradient(ellipse at 50% 44%, rgba(var(--accent-rgb) / 0.14) 0%, transparent 62%)",
+              background: ringAccentColor
+                ? `radial-gradient(ellipse at 50% 44%, ${ringAccentColor}24 0%, transparent 62%)`
+                : "radial-gradient(ellipse at 50% 44%, rgba(var(--accent-rgb) / 0.14) 0%, transparent 62%)",
             }}
           />
           <div className="relative z-10">
-            <CalorieRing consumed={consumed} goal={goal} size={150} />
+            <CalorieRing consumed={consumed} goal={goal} size={150} accentColor={ringAccentColor} />
           </div>
           <div className="mt-4 w-full grid grid-cols-2 gap-2 relative z-10">
             <div className="bg-bg-elevated rounded-xl p-3 text-center">
@@ -352,6 +457,104 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      {/* Festival banner — active festival (not shown in recovery mode) */}
+      {activeFestival && !recovery && (
+        <div
+          className="mb-4 rounded-2xl p-4 border border-bg-border overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${activeFestival.color_accent}14 0%, ${activeFestival.color_accent}08 100%)`,
+          }}
+        >
+          <div className="flex items-start gap-2 mb-1">
+            <span className="text-2xl">{activeFestival.emoji}</span>
+            <div>
+              <p className="text-base font-bold text-text-primary">{activeFestival.name}</p>
+              <p className="text-xs text-text-muted mt-0.5">{activeFestival.description}</p>
+            </div>
+          </div>
+
+          {festMode === "full" && user?.festival_adjustment ? (
+            <p className="text-xs mt-2" style={{ color: activeFestival.color_accent }}>
+              Adjusted goal: <strong>{user.festival_adjustment.adjusted_goal} kcal</strong>{" "}
+              <span className="text-text-muted">(normal: {user.festival_adjustment.original_goal})</span>
+            </p>
+          ) : festMode === "awareness" ? (
+            <p className="text-xs mt-2 text-text-muted">
+              Your goal stays at {goal} kcal — enjoy the festivities! 🎉
+            </p>
+          ) : null}
+
+          {/* Festival food chips */}
+          {festivalFoods.length > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] font-medium uppercase tracking-wider mb-2" style={{ color: activeFestival.color_accent }}>
+                Festival foods
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {festivalFoods.slice(0, 8).map((food) => (
+                  <div
+                    key={food.id}
+                    className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border text-xs"
+                    style={{ borderColor: `${activeFestival.color_accent}40`, backgroundColor: `${activeFestival.color_accent}08` }}
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-text-primary whitespace-nowrap">{food.name}</p>
+                      {food.serving_calories && (
+                        <p className="text-text-muted">{food.serving_calories} kcal</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => logFestivalFood(food)}
+                      className="flex-shrink-0 px-2 py-1 rounded-lg font-semibold transition-colors whitespace-nowrap"
+                      style={{ backgroundColor: `${activeFestival.color_accent}20`, color: activeFestival.color_accent }}
+                    >
+                      Log
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recovery card — replaces festival banner after festival ends (full mode only) */}
+      {recovery && festMode === "full" && (() => {
+        const rec = recovery;
+        const segments = rec.recovery_days_total;
+        const filled = rec.recovery_day_current;
+        return (
+          <div className="mb-4 card p-4" style={{ borderColor: "#94a3b820", backgroundColor: "#94a3b808" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xl">🌱</span>
+              <div>
+                <p className="text-sm font-semibold text-text-primary">{rec.festival_name} Recovery</p>
+                <p className="text-xs text-text-muted">
+                  Day {rec.recovery_day_current} of {rec.recovery_days_total} of gentle recovery
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-text-muted mb-3">
+              {rec.festival_name} added ~{rec.excess_calories} extra kcal over {rec.recovery_days_total} days.{" "}
+              You're bouncing back 🌿
+            </p>
+            <div className="flex gap-1 mb-3">
+              {Array.from({ length: segments }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-1.5 rounded-full"
+                  style={{ backgroundColor: i < filled ? "#64748b" : "#1e293b" }}
+                />
+              ))}
+            </div>
+            <p className="text-xs text-text-muted">
+              Today's suggested goal:{" "}
+              <span className="text-text-secondary font-medium">{rec.suggested_goal} kcal</span>
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Calorie Pace — real-time projection for today */}
       {isToday && consumed > 0 && <CaloriePace consumed={consumed} goal={goal} />}
@@ -588,6 +791,27 @@ export default function Dashboard() {
         })}
       </div>
 
+      {/* Food Personality share button */}
+      {personality && (
+        <div className="card p-4 flex items-center justify-between gap-4 mt-3">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{personality.emoji}</span>
+            <div>
+              <p className="text-xs text-text-muted">Your food personality</p>
+              <p className="text-sm font-semibold text-text-primary">{personality.title}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowPersonalityCard(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
+            style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa" }}
+          >
+            <Sparkles size={13} />
+            Share
+          </button>
+        </div>
+      )}
+
       {/* FAB for mobile */}
       <button
         onClick={() => setShowModal(true)}
@@ -603,6 +827,15 @@ export default function Dashboard() {
           defaultMealType={activeMealType}
           defaultDate={date}
           defaultQuery={modalPrefillQuery}
+          activeFestival={activeFestival}
+          festivalMode={festMode}
+        />
+      )}
+
+      {showPersonalityCard && personality && (
+        <FoodPersonalityCard
+          data={personality}
+          onClose={() => setShowPersonalityCard(false)}
         />
       )}
 

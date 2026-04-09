@@ -13,6 +13,8 @@ import Groups from './pages/Groups';
 import Insights from './pages/Insights';
 import Admin from './pages/Admin';
 import Upgrade from './pages/Upgrade';
+import PractitionerDashboard from './pages/PractitionerDashboard';
+import PatientDetail from './pages/PatientDetail';
 import InstallBanner from './components/InstallBanner';
 import { setupPushNotifications } from './lib/push';
 
@@ -87,6 +89,8 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="admin" element={<Admin />} />
           <Route path="upgrade" element={<Upgrade />} />
+          <Route path="practitioner" element={<PractitionerDashboard />} />
+          <Route path="practitioner/patients/:patientId" element={<PatientDetail />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

@@ -62,6 +62,8 @@ async def delete_log(log_id: str, current_user: dict = Depends(get_current_user)
 
 @router.get("/summary/{date_str}")
 async def get_daily_summary(date_str: str, current_user: dict = Depends(get_current_user)):
+    from app.data.festivals import get_active_festivals, compute_festival_adjustment
+
     db = get_db()
     logs = await db.meal_logs.find({
         "user_id": current_user["_id"],
@@ -76,12 +78,33 @@ async def get_daily_summary(date_str: str, current_user: dict = Depends(get_curr
             meal_breakdown[mt] = 0
         meal_breakdown[mt] += l["total_calories"]
 
+    country = (current_user.get("country") or "IN").upper()
+    festival_mode = current_user.get("festival_mode") or "awareness"
+    base_goal = current_user.get("calorie_goal") or 2000
+
+    try:
+        check_date = date.fromisoformat(date_str)
+    except ValueError:
+        check_date = date.today()
+
+    active_festivals = get_active_festivals(country, check_date)
+    festival = active_festivals[0] if active_festivals else None
+    festival_adj = compute_festival_adjustment(festival, base_goal, festival_mode)
+
+    # When full mode, effective goal is adjusted
+    effective_goal = (
+        festival_adj["adjusted_goal"]
+        if festival_adj and festival_mode == "full"
+        else base_goal
+    )
+
     return {
         "date": date_str,
         "total_calories": total_calories,
-        "calorie_goal": current_user.get("calorie_goal"),
+        "calorie_goal": effective_goal,
         "meals": [serialize_log(l) for l in logs],
         "meal_breakdown": meal_breakdown,
+        "festival_adjustment": festival_adj,
     }
 
 
@@ -588,3 +611,168 @@ async def get_macro_history(
             by_date[d]["fat"] += entry.get("fat_g") or 0
 
     return list(by_date.values())
+
+
+# ── Food Personality ──────────────────────────────────────────────────────────
+@router.get("/food-personality")
+async def get_food_personality(current_user: dict = Depends(require_pro)):
+    db = get_db()
+    uid = current_user["_id"]
+    since = (date.today() - timedelta(days=60)).isoformat()
+
+    logs = await db.meal_logs.find(
+        {"user_id": uid, "date": {"$gte": since}}
+    ).sort("date", 1).to_list(2000)
+
+    unique_days = set(l["date"] for l in logs)
+    if len(unique_days) < 14:
+        raise HTTPException(400, "Not enough data — log meals for at least 14 days to unlock your Food Personality")
+
+    goal = current_user.get("calorie_goal", 2000) or 2000
+    total_cals: list[float] = []
+    day_meal_counts: dict[str, int] = {}
+    context_counts: dict[str, int] = {}
+    food_counts: dict[str, int] = {}
+    weekend_cals: list[float] = []
+    weekday_cals: list[float] = []
+    day_cal_map: dict[str, float] = {}
+
+    for l in logs:
+        d = l["date"]
+        cals = l.get("total_calories", 0)
+        total_cals.append(cals)
+        day_cal_map[d] = day_cal_map.get(d, 0) + cals
+        day_meal_counts[d] = day_meal_counts.get(d, 0) + 1
+
+        ctx = l.get("context") or "home"
+        context_counts[ctx] = context_counts.get(ctx, 0) + 1
+
+        for entry in l.get("entries", []):
+            fn = entry.get("food_name", "")
+            if fn:
+                food_counts[fn] = food_counts.get(fn, 0) + 1
+
+        try:
+            wd = date.fromisoformat(d).weekday()  # 0=Mon 6=Sun
+            if wd >= 5:
+                weekend_cals.append(cals)
+            else:
+                weekday_cals.append(cals)
+        except ValueError:
+            pass
+
+    tracked_days = len(unique_days)
+    avg_cal = round(sum(total_cals) / len(total_cals)) if total_cals else 0
+    avg_day_cal = round(sum(day_cal_map.values()) / len(day_cal_map)) if day_cal_map else 0
+    top_food = max(food_counts, key=food_counts.get) if food_counts else None  # type: ignore[arg-type]
+    top_ctx = max(context_counts, key=context_counts.get) if context_counts else "home"
+    avg_meals_per_day = sum(day_meal_counts.values()) / len(day_meal_counts) if day_meal_counts else 0
+
+    # Days where user hit 70–110% of goal
+    on_target_days = sum(1 for v in day_cal_map.values() if goal * 0.7 <= v <= goal * 1.1)
+    consistency_pct = round(on_target_days / tracked_days * 100)
+
+    weekend_avg = round(sum(weekend_cals) / len(weekend_cals)) if weekend_cals else 0
+    weekday_avg = round(sum(weekday_cals) / len(weekday_cals)) if weekday_cals else 0
+
+    # Score each personality type
+    scores: dict[str, float] = {}
+
+    # Consistent Tracker — high tracking frequency + on-target days
+    scores["consistent_tracker"] = (tracked_days / 60) * 50 + consistency_pct * 0.5
+
+    # Meal Skipper — very few meals per day
+    if avg_meals_per_day < 2:
+        scores["meal_skipper"] = 80
+    else:
+        scores["meal_skipper"] = max(0, (2 - avg_meals_per_day) * 40)
+
+    # Weekend Warrior — weekend calories significantly higher than weekday
+    if weekday_avg > 0:
+        ww_ratio = (weekend_avg - weekday_avg) / weekday_avg
+        scores["weekend_warrior"] = min(80, max(0, ww_ratio * 200))
+    else:
+        scores["weekend_warrior"] = 0
+
+    # Street Food Explorer — restaurant/street_food context dominant
+    street_count = context_counts.get("restaurant", 0) + context_counts.get("street_food", 0) + context_counts.get("delivery", 0)
+    scores["street_food_explorer"] = min(80, street_count / max(len(logs), 1) * 160)
+
+    # Home Cook Hero — home context dominant
+    home_ratio = context_counts.get("home", 0) / max(len(logs), 1)
+    scores["home_cook_hero"] = min(80, home_ratio * 100)
+
+    # The Balanced One — consistent + near goal + variety
+    variety = min(len(food_counts) / 20, 1.0)
+    scores["the_balanced_one"] = consistency_pct * 0.5 + variety * 30
+
+    # Late Night Snacker — adhoc context + high avg meal count (proxy)
+    adhoc_ratio = context_counts.get("work", 0) / max(len(logs), 1)
+    scores["late_night_snacker"] = min(60, adhoc_ratio * 120 + (avg_meals_per_day > 4) * 20)
+
+    # Festival Feaster — not directly detectable without festival data, use high variety + spikes
+    max_day_cal = max(day_cal_map.values()) if day_cal_map else 0
+    spike_ratio = max_day_cal / goal if goal > 0 else 1
+    scores["festival_feaster"] = min(60, max(0, (spike_ratio - 1.3) * 80))
+
+    personality_key = max(scores, key=scores.get)  # type: ignore[arg-type]
+
+    PERSONALITIES = {
+        "consistent_tracker": {
+            "title": "Consistent Tracker",
+            "emoji": "📊",
+            "description": "You show up every day, no excuses. Your streak speaks for itself — you've built logging into a habit most people only dream about. Your data is your superpower.",
+        },
+        "meal_skipper": {
+            "title": "Meal Skipper",
+            "emoji": "⏭️",
+            "description": "You live by the 'quality over quantity' rule — fewer meals, but they count. Whether it's intermittent fasting or just a packed schedule, you make every meal matter.",
+        },
+        "weekend_warrior": {
+            "title": "Weekend Warrior",
+            "emoji": "🎉",
+            "description": "Weekdays? Disciplined. Weekends? Let's gooo. You've mastered the art of balance — keep the weekday momentum and enjoy those weekend feasts guilt-free.",
+        },
+        "street_food_explorer": {
+            "title": "Street Food Explorer",
+            "emoji": "🛵",
+            "description": "Chaat, dosa, biryani — you eat where the real flavours are. You're an adventurer at heart, and your food log reads like a city food guide. Keep exploring.",
+        },
+        "home_cook_hero": {
+            "title": "Home Cook Hero",
+            "emoji": "🍳",
+            "description": "You know exactly what goes into your food — because you made it. Home cooking is your love language, and your body is thanking you for it.",
+        },
+        "the_balanced_one": {
+            "title": "The Balanced One",
+            "emoji": "⚖️",
+            "description": "You've cracked the code. Consistent, goal-aligned, and varied — your nutrition profile is the benchmark others aspire to. Teach us your ways.",
+        },
+        "late_night_snacker": {
+            "title": "Late Night Snacker",
+            "emoji": "🌙",
+            "description": "When the world sleeps, your appetite wakes up. You're a creature of the night, and your snack game is unmatched. Just maybe hold off on that midnight biryani sometimes.",
+        },
+        "festival_feaster": {
+            "title": "Festival Feaster",
+            "emoji": "🪔",
+            "description": "Every celebration is a reason to eat well. From Diwali sweets to birthday cakes, you live for those calorie-spiked joyful moments. Life's too short not to feast.",
+        },
+    }
+
+    p = PERSONALITIES[personality_key]
+
+    return {
+        "personality_type": personality_key,
+        "title": p["title"],
+        "emoji": p["emoji"],
+        "description": p["description"],
+        "stats": {
+            "tracked_days": tracked_days,
+            "avg_daily_calories": avg_day_cal,
+            "top_food": top_food,
+            "top_context": top_ctx,
+            "consistency_pct": consistency_pct,
+            "calorie_goal": goal,
+        },
+    }
