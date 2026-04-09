@@ -15,6 +15,7 @@ class UserRegister(BaseModel):
     activity_level: Optional[str] = "moderate"  # sedentary/light/moderate/active/very_active
     dietary_preferences: Optional[List[str]] = []  # vegan, keto, vegetarian, etc.
     calorie_goal: Optional[int] = None
+    referral_code: Optional[str] = None  # referrer's code, entered by the new user
 
 
 class UserLogin(BaseModel):
@@ -31,6 +32,29 @@ class UserUpdate(BaseModel):
     activity_level: Optional[str] = None
     dietary_preferences: Optional[List[str]] = None
     calorie_goal: Optional[int] = None
+    country: Optional[str] = None       # ISO 2-letter code, e.g. "IN"
+    festival_mode: Optional[str] = None  # "off" | "awareness" | "full"
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class FestivalAdjustment(BaseModel):
+    festival_id: str
+    festival_name: str
+    original_goal: int
+    adjusted_goal: int
+    type: str  # feast / fast / sweet_heavy / mixed
+    emoji: str
+    color_accent: str
+    ambient_effect: str
+    description: str
+    goal_multiplier: float
+    festival_mode: str
+    start_date: str
+    end_date: str
 
 
 class UserResponse(BaseModel):
@@ -51,6 +75,13 @@ class UserResponse(BaseModel):
     ai_uses_remaining: int = 10
     pro_expires_at: Optional[str] = None
     plan_type: Optional[str] = None
+    country: str = "IN"
+    festival_mode: str = "awareness"
+    festival_adjustment: Optional[FestivalAdjustment] = None
+    referral_code: str = ""
+    role: str = "user"           # "user" | "practitioner" | "admin"
+    is_practitioner: bool = False  # derived: role == "practitioner"
+    practitioner_consent: Optional[bool] = None  # None = not a patient; True/False = consent status
 
 
 class Token(BaseModel):

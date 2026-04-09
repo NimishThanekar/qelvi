@@ -8,10 +8,10 @@ import secrets
 import string
 import time
 from app.database import get_db
-from app.models.schemas import UserRegister, UserLogin, UserUpdate, UserResponse, FestivalAdjustment, Token
+from app.models.schemas import UserRegister, UserLogin, UserUpdate, UserResponse, FestivalAdjustment, Token, PasswordChange
 from app.services.auth import (
     verify_password, hash_password, create_access_token,
-    decode_token, calculate_bmr, calculate_tdee
+    decode_token, decode_token_full, calculate_bmr, calculate_tdee
 )
 import os
 from google.oauth2 import id_token
@@ -126,22 +126,43 @@ def format_user(user: dict) -> UserResponse:
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     db = get_db()
-    user_id = decode_token(token)
+
+    payload = decode_token_full(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    # Auto-downgrade expired Pro subscriptions on every authenticated request
+
+    # ── In-memory cache check ─────────────────────────────────────────
+    cached = _get_cached_user(user_id)
+    if cached is not None:
+        user = cached
+    else:
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        _set_cached_user(user_id, user)
+
+    # ── Password-change token invalidation ───────────────────────────
+    iat = payload.get("iat")
+    password_changed_at = user.get("password_changed_at")
+    if iat and password_changed_at:
+        token_issued = datetime.utcfromtimestamp(iat) if isinstance(iat, (int, float)) else iat
+        if isinstance(token_issued, datetime) and token_issued < password_changed_at:
+            raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+
+    # ── Auto-downgrade expired Pro subscriptions ──────────────────────
     if user.get("is_pro") and user.get("pro_expires_at"):
         expires_at = user["pro_expires_at"]
-        # pro_expires_at is stored as a naive UTC datetime in MongoDB
         if datetime.utcnow() > expires_at:
             await db.users.update_one(
                 {"_id": user["_id"]},
                 {"$set": {"is_pro": False}},
             )
             user["is_pro"] = False
+            _set_cached_user(user_id, user)  # update cache with downgraded state
+
     return user
 
 
@@ -261,8 +282,28 @@ async def update_profile(data: UserUpdate, current_user: dict = Depends(get_curr
     if update_data:
         await db.users.update_one({"_id": current_user["_id"]}, {"$set": update_data})
         current_user.update(update_data)
+        _evict_cached_user(str(current_user["_id"]))  # keep cache fresh after profile updates
 
     return format_user(current_user)
+
+
+@router.put("/password")
+async def change_password(data: PasswordChange, current_user: dict = Depends(get_current_user)):
+    """Change password and invalidate all existing tokens by updating password_changed_at."""
+    if not current_user.get("password"):
+        raise HTTPException(status_code=400, detail="This account uses Google sign-in. Password cannot be changed.")
+    if not verify_password(data.current_password, current_user["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    db = get_db()
+    now = datetime.utcnow()
+    new_hash = hash_password(data.new_password)
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"password": new_hash, "password_changed_at": now}},
+    )
+    # Evict from in-memory cache so next request re-reads updated password_changed_at
+    _evict_cached_user(str(current_user["_id"]))
+    return {"message": "Password changed. Please log in again."}
 
 
 class PushSubscriptionRequest(BaseModel):

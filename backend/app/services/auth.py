@@ -24,15 +24,26 @@ def hash_password(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    now = datetime.utcnow()
+    expire = now + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode["exp"] = expire
+    to_encode["iat"] = now  # issued-at: used to invalidate tokens after password change
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> Optional[str]:
+    """Return the user_id (sub) from the token, or None if invalid."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload.get("sub")
+    except JWTError:
+        return None
+
+
+def decode_token_full(token: str) -> Optional[dict]:
+    """Return the full decoded payload, or None if invalid."""
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         return None
 
