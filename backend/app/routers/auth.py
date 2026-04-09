@@ -194,7 +194,13 @@ async def require_practitioner(current_user: dict = Depends(get_current_user)):
 
 
 async def require_pro(current_user: dict = Depends(get_current_user)):
+    """Gate Pro-only endpoints. Checks both the flag and the expiry timestamp."""
     if not current_user.get("is_pro", False):
+        raise HTTPException(status_code=403, detail="Pro subscription required")
+    # Belt-and-suspenders: verify expiry even though get_current_user auto-downgrades.
+    # Guards against edge cases where the downgrade hasn't propagated yet (e.g. cached user).
+    expires_at = current_user.get("pro_expires_at")
+    if expires_at and datetime.utcnow() > expires_at:
         raise HTTPException(status_code=403, detail="Pro subscription required")
     return current_user
 
