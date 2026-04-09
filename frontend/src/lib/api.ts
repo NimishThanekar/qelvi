@@ -46,7 +46,8 @@ export const authApi = {
   login: (data: any) => api.post('/auth/login', data),
   me: () => api.get('/auth/me'),
   updateProfile: (data: any) => api.put('/auth/me', data),
-  googleLogin: (credential: string) => api.post('/auth/google', { credential }),
+  googleLogin: (credential: string, referral_code?: string) =>
+    api.post('/auth/google', { credential, ...(referral_code ? { referral_code } : {}) }),
   savePushSubscription: (subscription: any) =>
     api.put('/auth/push-subscription', { subscription }),
   forgotPassword: (email: string) =>

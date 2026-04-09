@@ -205,19 +205,23 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 def _is_self_referral(new_email: str, referrer_email: str) -> bool:
-    """Return True if the referral looks like abuse (same domain or email alias trick)."""
+    """Return True only for clear self-referral abuse: exact same address or + alias trick."""
+    new_lower = new_email.lower()
+    ref_lower = referrer_email.lower()
+    if new_lower == ref_lower:
+        return True
     try:
-        new_local, new_domain = new_email.lower().rsplit("@", 1)
-        ref_local, ref_domain = referrer_email.lower().rsplit("@", 1)
+        new_local, new_domain = new_lower.rsplit("@", 1)
+        ref_local, ref_domain = ref_lower.rsplit("@", 1)
     except ValueError:
         return False
+    # Only flag the + alias trick when both sides share the same domain AND same base username.
+    # e.g. me@gmail.com and me+ref@gmail.com — NOT two different people on gmail.com.
     if new_domain == ref_domain:
-        return True
-    # Strip '+' alias suffix and compare base addresses
-    new_base = new_local.split("+")[0]
-    ref_base = ref_local.split("+")[0]
-    if new_base == ref_base:
-        return True
+        new_base = new_local.split("+")[0]
+        ref_base = ref_local.split("+")[0]
+        if new_base == ref_base:
+            return True
     return False
 
 
@@ -265,11 +269,18 @@ async def register(request: Request, data: UserRegister):
     # ── Rate limit: 3 registrations per IP per hour ───────────────────
     client_ip = _get_client_ip(request)
     reg_doc = await db.registration_attempts.find_one({"ip": client_ip})
-    if reg_doc and reg_doc.get("count", 0) >= 3:
-        raise HTTPException(
-            status_code=429,
-            detail="Too many registration attempts from this IP. Try again later.",
-        )
+    if reg_doc:
+        # Belt-and-suspenders: don't rely solely on MongoDB TTL cleanup timing.
+        # If the 1-hour window has passed in code, reset the counter now.
+        first_attempt_at = reg_doc.get("first_attempt_at", datetime.utcnow())
+        if datetime.utcnow() - first_attempt_at > timedelta(hours=1):
+            await db.registration_attempts.delete_one({"ip": client_ip})
+            reg_doc = None
+        elif reg_doc.get("count", 0) >= 3:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many registration attempts from this IP. Try again later.",
+            )
 
     existing = await db.users.find_one({"email": data.email})
     if existing:
@@ -307,7 +318,7 @@ async def register(request: Request, data: UserRegister):
             user_dict["referred_by"] = referrer["_id"]
             user_dict["referral_status"] = "pending"  # activates after 3 meal logs
             user_dict["is_pro"] = True
-            user_dict["pro_expires_at"] = now + timedelta(days=7)
+            user_dict["pro_expires_at"] = now + timedelta(days=30)
             user_dict["pro_source"] = "referral"
             # Practitioner link — only when the referrer has the practitioner role.
             # This is consent-based: the patient chose to use the code, granting
@@ -343,14 +354,21 @@ async def login(data: UserLogin):
 
     # ── Rate limit: 5 failed attempts per email per 15-minute window ──
     attempt_doc = await db.login_attempts.find_one({"email": data.email})
-    if attempt_doc and attempt_doc.get("attempt_count", 0) >= 5:
-        raise HTTPException(
-            status_code=429,
-            detail="Too many login attempts. Try again in 15 minutes.",
-        )
+    if attempt_doc:
+        # Belt-and-suspenders: reset in code if the 15-minute window has passed.
+        first_attempt_at = attempt_doc.get("first_attempt_at", datetime.utcnow())
+        if datetime.utcnow() - first_attempt_at > timedelta(minutes=15):
+            await db.login_attempts.delete_one({"email": data.email})
+            attempt_doc = None
+        elif attempt_doc.get("attempt_count", 0) >= 5:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many login attempts. Try again in 15 minutes.",
+            )
 
     user = await db.users.find_one({"email": data.email})
-    if not user or not verify_password(data.password, user["password"]):
+    # Guard: Google-only accounts have password=None; verify_password(x, None) throws.
+    if not user or not user.get("password") or not verify_password(data.password, user["password"]):
         # Record the failed attempt (upsert: set first_attempt_at only on insert)
         await db.login_attempts.update_one(
             {"email": data.email},
@@ -517,6 +535,7 @@ async def reset_password(data: ResetPasswordRequest):
 
 class GoogleAuthRequest(BaseModel):
     credential: str  # Google ID token
+    referral_code: Optional[str] = None  # referrer's code, entered before clicking "Sign up with Google"
 
 
 @router.post("/google", response_model=Token)
@@ -547,16 +566,36 @@ async def google_login(data: GoogleAuthRequest):
 
     if user is None:
         # Create a new account — no password (Google-only)
+        now = datetime.utcnow()
         new_user: dict = {
             "email": email,
             "name": name,
             "password": None,
             "google_sub": google_sub,
-            "created_at": datetime.utcnow(),
+            "created_at": now,
             "dietary_preferences": [],
             "activity_level": "moderate",
             "referral_code": await generate_referral_code(db),
+            "is_pro": False,
+            "ai_uses_remaining": 10,
         }
+
+        # Resolve referral code (same logic as /register — silently ignore invalid/abusive codes)
+        referrer_code_input = (data.referral_code or "").strip().upper()
+        if referrer_code_input:
+            referrer = await db.users.find_one({"referral_code": referrer_code_input})
+            if referrer and _is_self_referral(email, referrer.get("email", "")):
+                referrer = None
+            if referrer:
+                new_user["referred_by"] = referrer["_id"]
+                new_user["referral_status"] = "pending"
+                new_user["is_pro"] = True
+                new_user["pro_expires_at"] = now + timedelta(days=30)
+                new_user["pro_source"] = "referral"
+                if referrer.get("role") == "practitioner":
+                    new_user["practitioner_id"] = referrer["_id"]
+                    new_user["practitioner_consent"] = True
+
         result = await db.users.insert_one(new_user)
         new_user["_id"] = result.inserted_id
         user = new_user

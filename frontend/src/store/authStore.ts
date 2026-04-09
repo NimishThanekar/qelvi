@@ -40,7 +40,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
-  googleLogin: (credential: string) => Promise<void>;
+  googleLogin: (credential: string, referralCode?: string) => Promise<void>;
   logout: () => void;
   updateUser: (data: any) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -67,8 +67,8 @@ export const useAuthStore = create<AuthState>()(
         set({ token: access_token, user, isAuthenticated: true });
       },
 
-      googleLogin: async (credential) => {
-        const res = await authApi.googleLogin(credential);
+      googleLogin: async (credential, referralCode) => {
+        const res = await authApi.googleLogin(credential, referralCode);
         const { access_token, user } = res.data;
         localStorage.setItem('token', access_token);
         set({ token: access_token, user, isAuthenticated: true });

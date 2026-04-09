@@ -174,7 +174,7 @@ export default function Register() {
               onSuccess={async (res) => {
                 if (!res.credential) return;
                 try {
-                  await googleLogin(res.credential);
+                  await googleLogin(res.credential, referralCode.trim() || undefined);
                   navigate("/dashboard");
                 } catch (err: any) {
                   toast.error(err?.response?.data?.detail || "Google sign-in failed");
