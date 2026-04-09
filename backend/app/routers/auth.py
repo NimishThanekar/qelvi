@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
@@ -40,6 +40,14 @@ def _set_cached_user(user_id: str, user: dict) -> None:
 
 def _evict_cached_user(user_id: str) -> None:
     _user_cache.pop(user_id, None)
+
+
+def _get_client_ip(request: Request) -> str:
+    """Extract real client IP, respecting X-Forwarded-For for reverse proxies."""
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 _REFERRAL_CHARS = string.ascii_uppercase + string.digits
@@ -206,8 +214,18 @@ async def require_pro(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/register", response_model=Token)
-async def register(data: UserRegister):
+async def register(request: Request, data: UserRegister):
     db = get_db()
+
+    # ── Rate limit: 3 registrations per IP per hour ───────────────────
+    client_ip = _get_client_ip(request)
+    reg_doc = await db.registration_attempts.find_one({"ip": client_ip})
+    if reg_doc and reg_doc.get("count", 0) >= 3:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many registration attempts from this IP. Try again later.",
+        )
+
     existing = await db.users.find_one({"email": data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -263,6 +281,16 @@ async def register(data: UserRegister):
                 {"_id": referrer["_id"]},
                 {"$inc": {"referral_pro_days_earned": days_to_grant}},
             )
+
+    # Record this registration for IP rate limiting
+    await db.registration_attempts.update_one(
+        {"ip": client_ip},
+        {
+            "$inc": {"count": 1},
+            "$setOnInsert": {"first_attempt_at": datetime.utcnow()},
+        },
+        upsert=True,
+    )
 
     token = create_access_token({"sub": str(result.inserted_id)})
     return Token(access_token=token, token_type="bearer", user=format_user(user_dict))

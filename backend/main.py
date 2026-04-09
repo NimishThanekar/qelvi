@@ -34,6 +34,13 @@ async def startup():
         name="login_attempts_ttl",
     )
     await db.login_attempts.create_index("email", name="login_attempts_email")
+    # registration_attempts: 1-hour TTL auto-cleanup
+    await db.registration_attempts.create_index(
+        "first_attempt_at",
+        expireAfterSeconds=3600,
+        name="registration_attempts_ttl",
+    )
+    await db.registration_attempts.create_index("ip", name="registration_attempts_ip")
 
 
 @app.on_event("shutdown")
