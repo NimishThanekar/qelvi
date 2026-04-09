@@ -1,48 +1,18 @@
 /**
  * InstallBanner — slim top bar that prompts mobile users to install the PWA.
- *
- * - Only shown once (dismissed state stored in localStorage)
- * - Only shown when the browser fires the `beforeinstallprompt` event
- * - Not shown on iOS (which uses its own Add to Home Screen mechanism)
+ * Dismisses for the current session only (not stored in localStorage).
+ * Uses usePWAInstall hook so the prompt event is shared with the sidebar button.
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { X, Download } from "lucide-react";
-
-const DISMISSED_KEY = "pwa-install-dismissed";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 
 export default function InstallBanner() {
-  const [prompt, setPrompt] = useState<any>(null);
-  const [visible, setVisible] = useState(false);
+  const { canInstall, triggerInstall } = usePWAInstall();
+  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    if (localStorage.getItem(DISMISSED_KEY)) return;
-
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setPrompt(e);
-      setVisible(true);
-    };
-
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
-
-  const handleInstall = async () => {
-    if (!prompt) return;
-    prompt.prompt();
-    const { outcome } = await prompt.userChoice;
-    if (outcome === "accepted") {
-      dismiss();
-    }
-  };
-
-  const dismiss = () => {
-    localStorage.setItem(DISMISSED_KEY, "1");
-    setVisible(false);
-  };
-
-  if (!visible) return null;
+  if (!canInstall || dismissed) return null;
 
   return (
     <div
@@ -63,7 +33,7 @@ export default function InstallBanner() {
         Add <span className="font-semibold">Qelvi</span> to your home screen for quick access
       </p>
       <button
-        onClick={handleInstall}
+        onClick={triggerInstall}
         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0 transition-all"
         style={{ backgroundColor: "#a3e635", color: "#000" }}
       >
@@ -71,7 +41,7 @@ export default function InstallBanner() {
         Install
       </button>
       <button
-        onClick={dismiss}
+        onClick={() => setDismissed(true)}
         className="p-1 text-text-muted hover:text-text-secondary transition-colors flex-shrink-0"
       >
         <X size={14} />

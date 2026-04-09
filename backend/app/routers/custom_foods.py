@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from bson import ObjectId
 from datetime import datetime
@@ -59,7 +60,7 @@ async def list_custom_foods(
     db = get_db()
     query: dict = {"user_id": current_user["_id"]}
     if q:
-        query["name"] = {"$regex": q, "$options": "i"}
+        query["name"] = {"$regex": re.escape(q), "$options": "i"}
 
     docs = await db.custom_foods.find(query).sort("created_at", -1).to_list(100)
     result = []
@@ -73,6 +74,8 @@ async def list_custom_foods(
 async def delete_custom_food(
     food_id: str, current_user: dict = Depends(get_current_user)
 ):
+    if not ObjectId.is_valid(food_id):
+        raise HTTPException(status_code=400, detail="Invalid food ID")
     db = get_db()
     result = await db.custom_foods.delete_one(
         {"_id": ObjectId(food_id), "user_id": current_user["_id"]}

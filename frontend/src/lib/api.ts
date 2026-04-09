@@ -49,6 +49,10 @@ export const authApi = {
   googleLogin: (credential: string) => api.post('/auth/google', { credential }),
   savePushSubscription: (subscription: any) =>
     api.put('/auth/push-subscription', { subscription }),
+  forgotPassword: (email: string) =>
+    api.post('/auth/forgot-password', { email }),
+  resetPassword: (email: string, otp: string, new_password: string) =>
+    api.post('/auth/reset-password', { email, otp, new_password }),
 };
 
 // Foods

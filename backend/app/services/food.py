@@ -1,3 +1,4 @@
+import re
 from typing import List, Optional
 from app.database import get_db
 
@@ -6,11 +7,11 @@ async def search_foods(query: str = "", category: str = "", cuisine: str = "", m
     db = get_db()
     filter: dict = {}
     if query:
-        filter["item"] = {"$regex": query, "$options": "i"}
+        filter["item"] = {"$regex": re.escape(query), "$options": "i"}
     if category:
-        filter["category"] = {"$regex": f"^{category}$", "$options": "i"}
+        filter["category"] = {"$regex": f"^{re.escape(category)}$", "$options": "i"}
     if cuisine:
-        filter["cuisine"] = {"$regex": f"^{cuisine}$", "$options": "i"}
+        filter["cuisine"] = {"$regex": f"^{re.escape(cuisine)}$", "$options": "i"}
 
     cursor = db["foods"].find(filter)
     foods = await cursor.to_list(length=None)

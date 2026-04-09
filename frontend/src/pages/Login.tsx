@@ -92,6 +92,14 @@ export default function Login() {
             >
               {loading ? "Signing in..." : "Sign in"}
             </button>
+            <div className="text-right">
+              <Link
+                to="/forgot-password"
+                className="text-xs text-text-muted hover:text-accent-primary transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
           </form>
 
           {/* Divider */}

@@ -16,6 +16,8 @@ import Upgrade from './pages/Upgrade';
 import PractitionerDashboard from './pages/PractitionerDashboard';
 import PatientDetail from './pages/PatientDetail';
 import InstallBanner from './components/InstallBanner';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import { setupPushNotifications } from './lib/push';
 
 const PUSH_ASKED_KEY = 'push-permission-asked';
@@ -79,6 +81,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+        <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
         <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />

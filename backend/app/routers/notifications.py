@@ -52,6 +52,8 @@ async def broadcast(data: BroadcastRequest, _admin=Depends(get_admin_user)):
     db = get_db()
 
     if data.user_id:
+        if not ObjectId.is_valid(data.user_id):
+            raise HTTPException(status_code=400, detail="Invalid user ID")
         users = await db.users.find(
             {"_id": ObjectId(data.user_id), "push_subscription": {"$exists": True, "$ne": None}}
         ).to_list(1)

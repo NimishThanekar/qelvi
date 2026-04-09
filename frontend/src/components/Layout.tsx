@@ -13,9 +13,11 @@ import {
   Shield,
   Zap,
   Crown,
+  Download,
 } from "lucide-react";
 import { useState } from "react";
 import FestiveAmbient from "./FestiveAmbient";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -34,6 +36,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { canInstall, triggerInstall } = usePWAInstall();
 
   const festAdj = user?.festival_adjustment;
   const festMode = user?.festival_mode || "awareness";
@@ -117,6 +120,17 @@ export default function Layout() {
           </NavLink>
         )}
       </nav>
+
+      {/* Install App */}
+      {canInstall && (
+        <button
+          onClick={() => { triggerInstall(); setMobileOpen(false); }}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-all w-full mb-1"
+        >
+          <Download size={17} />
+          Install App
+        </button>
+      )}
 
       {/* Go Pro / Pro badge */}
       {user?.is_pro ? (

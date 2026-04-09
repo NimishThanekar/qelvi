@@ -9,6 +9,9 @@ from app.routers.auth import get_current_user, require_pro
 router = APIRouter(prefix="/logs", tags=["logs"])
 
 MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack", "adhoc"]
+_MAX_REFERRAL_PRO_DAYS = 365
+_REFERRAL_ACTIVATION_MEALS = 3
+_REFERRAL_EXPIRY_DAYS = 14
 
 
 def serialize_log(log: dict) -> dict:
@@ -17,11 +20,58 @@ def serialize_log(log: dict) -> dict:
     return log
 
 
+async def _check_referral_activation(db, user: dict) -> None:
+    """
+    Called after every meal log creation.
+    If the logging user has a 'pending' referral, check whether they've now
+    logged >= 3 meals. If so, grant the referrer their Pro days and mark
+    the referral as 'activated'. If the 14-day window has passed without
+    reaching 3 meals, mark it 'expired'.
+    """
+    if user.get("referral_status") != "pending" or not user.get("referred_by"):
+        return
+
+    created_at = user.get("created_at")
+    if created_at and (datetime.utcnow() - created_at).days > _REFERRAL_EXPIRY_DAYS:
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"referral_status": "expired"}},
+        )
+        return
+
+    meal_count = await db.meal_logs.count_documents({"user_id": user["_id"]})
+    if meal_count >= _REFERRAL_ACTIVATION_MEALS:
+        referrer = await db.users.find_one({"_id": user["referred_by"]})
+        if referrer:
+            already_earned = referrer.get("referral_pro_days_earned", 0)
+            days_to_grant = min(7, _MAX_REFERRAL_PRO_DAYS - already_earned)
+            if days_to_grant > 0:
+                now = datetime.utcnow()
+                current_expiry = referrer.get("pro_expires_at")
+                base = (
+                    current_expiry
+                    if isinstance(current_expiry, datetime) and current_expiry > now
+                    else now
+                )
+                new_expiry = base + timedelta(days=days_to_grant)
+                await db.users.update_one(
+                    {"_id": referrer["_id"]},
+                    {
+                        "$set": {"is_pro": True, "pro_expires_at": new_expiry},
+                        "$inc": {"referral_pro_days_earned": days_to_grant},
+                    },
+                )
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"referral_status": "activated"}},
+        )
+
+
 @router.post("/", response_model=dict)
 async def create_log(data: MealLogCreate, current_user: dict = Depends(get_current_user)):
     db = get_db()
     total_calories = sum(e.calories for e in data.entries)
-    
+
     log_dict = {
         "user_id": current_user["_id"],
         "date": data.date,
@@ -35,6 +85,10 @@ async def create_log(data: MealLogCreate, current_user: dict = Depends(get_curre
     }
     result = await db.meal_logs.insert_one(log_dict)
     log_dict["_id"] = result.inserted_id
+
+    # Lazily activate pending referral if this user has now logged 3+ meals
+    await _check_referral_activation(db, current_user)
+
     return serialize_log(log_dict)
 
 
@@ -50,6 +104,8 @@ async def get_logs_by_date(date_str: str, current_user: dict = Depends(get_curre
 
 @router.delete("/{log_id}")
 async def delete_log(log_id: str, current_user: dict = Depends(get_current_user)):
+    if not ObjectId.is_valid(log_id):
+        raise HTTPException(status_code=400, detail="Invalid log ID")
     db = get_db()
     result = await db.meal_logs.delete_one({
         "_id": ObjectId(log_id),

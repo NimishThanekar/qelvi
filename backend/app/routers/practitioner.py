@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from bson import ObjectId
 from datetime import datetime, timedelta
@@ -7,7 +8,11 @@ from typing import Optional
 from app.database import get_db
 from app.routers.auth import require_practitioner
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/practitioner", tags=["practitioner"])
+
+_PRACTITIONER_RATE_LIMIT = 100  # requests per hour per practitioner
 
 
 def _patient_filter(practitioner_id: ObjectId) -> dict:
@@ -15,10 +20,14 @@ def _patient_filter(practitioner_id: ObjectId) -> dict:
 
 
 async def _assert_patient(db, patient_id: str, practitioner_id: ObjectId) -> dict:
+    """
+    Validate the full chain: valid ObjectId, owned by this practitioner, consent active.
+    Always returns 404 on any failure — never leak whether a patient_id exists.
+    """
     try:
         oid = ObjectId(patient_id)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid patient ID")
+        raise HTTPException(status_code=404, detail="Patient not found")
     patient = await db.users.find_one(
         {"_id": oid, **_patient_filter(practitioner_id)}
     )
@@ -27,8 +36,58 @@ async def _assert_patient(db, patient_id: str, practitioner_id: ObjectId) -> dic
     return patient
 
 
+async def rate_limited_practitioner(
+    request: Request,
+    current_user: dict = Depends(require_practitioner),
+) -> dict:
+    """Combines practitioner auth with 100-req/hr rate limit."""
+    db = get_db()
+    now = datetime.utcnow()
+    hour_key = now.strftime("%Y-%m-%dT%H")
+    pid = str(current_user["_id"])
+
+    rl_doc = await db.practitioner_rate_limits.find_one(
+        {"practitioner_id": pid, "hour_key": hour_key}
+    )
+    if rl_doc and rl_doc.get("count", 0) >= _PRACTITIONER_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Maximum 100 requests per hour.",
+        )
+
+    await db.practitioner_rate_limits.update_one(
+        {"practitioner_id": pid, "hour_key": hour_key},
+        {
+            "$inc": {"count": 1},
+            "$setOnInsert": {"first_request_at": now},
+        },
+        upsert=True,
+    )
+    return current_user
+
+
+async def _audit_log(
+    db, practitioner_id: ObjectId, patient_id: str, action: str, request: Request
+) -> None:
+    """Insert one audit record into practitioner_access_log (TTL 90 days)."""
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    ip = forwarded.split(",")[0].strip() if forwarded else (
+        request.client.host if request.client else "unknown"
+    )
+    try:
+        await db.practitioner_access_log.insert_one({
+            "practitioner_id": practitioner_id,
+            "patient_id": patient_id,
+            "action": action,
+            "timestamp": datetime.utcnow(),
+            "ip_address": ip,
+        })
+    except Exception as exc:
+        logger.warning("Failed to write practitioner audit log: %s", exc)
+
+
 @router.get("/patients")
-async def list_patients(current_user: dict = Depends(require_practitioner)):
+async def list_patients(current_user: dict = Depends(rate_limited_practitioner)):
     """Return all consenting patients linked to this practitioner."""
     db = get_db()
     pid = current_user["_id"]
@@ -108,11 +167,13 @@ async def list_patients(current_user: dict = Depends(require_practitioner)):
 @router.get("/patients/{patient_id}/summary")
 async def patient_summary(
     patient_id: str,
-    current_user: dict = Depends(require_practitioner),
+    request: Request,
+    current_user: dict = Depends(rate_limited_practitioner),
 ):
     """Detailed summary for one patient."""
     db = get_db()
     p = await _assert_patient(db, patient_id, current_user["_id"])
+    await _audit_log(db, current_user["_id"], patient_id, "view_summary", request)
     uid = p["_id"]
     now = datetime.utcnow()
 
@@ -234,11 +295,22 @@ async def patient_logs(
     patient_id: str,
     start: str = Query(..., description="YYYY-MM-DD"),
     end: str = Query(..., description="YYYY-MM-DD"),
-    current_user: dict = Depends(require_practitioner),
+    request: Request = None,
+    current_user: dict = Depends(rate_limited_practitioner),
 ):
-    """Raw meal logs for a patient over a date range."""
+    """Raw meal logs for a patient over a date range (max 90-day window)."""
+    try:
+        start_dt = datetime.strptime(start, "%Y-%m-%d")
+        end_dt = datetime.strptime(end, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+    if (end_dt - start_dt).days > 90:
+        raise HTTPException(status_code=400, detail="Date range cannot exceed 90 days.")
+
     db = get_db()
     p = await _assert_patient(db, patient_id, current_user["_id"])
+    if request:
+        await _audit_log(db, current_user["_id"], patient_id, "view_logs", request)
     uid = p["_id"]
 
     logs = await db.meal_logs.find(
@@ -266,11 +338,14 @@ async def patient_logs(
 async def patient_report(
     patient_id: str,
     days: int = Query(30, ge=7, le=90, description="Report window in days"),
-    current_user: dict = Depends(require_practitioner),
+    request: Request = None,
+    current_user: dict = Depends(rate_limited_practitioner),
 ):
     """Structured JSON report for a patient."""
     db = get_db()
     p = await _assert_patient(db, patient_id, current_user["_id"])
+    if request:
+        await _audit_log(db, current_user["_id"], patient_id, "view_report", request)
     uid = p["_id"]
     now = datetime.utcnow()
     since = (now - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -349,11 +424,14 @@ async def patient_report(
 async def download_patient_report(
     patient_id: str,
     days: int = Query(30, ge=7, le=90),
-    current_user: dict = Depends(require_practitioner),
+    request: Request = None,
+    current_user: dict = Depends(rate_limited_practitioner),
 ):
     """Generate and stream a PDF nutrition report for a patient."""
     db = get_db()
     p = await _assert_patient(db, patient_id, current_user["_id"])
+    if request:
+        await _audit_log(db, current_user["_id"], patient_id, "download_report", request)
     uid = p["_id"]
     now = datetime.utcnow()
     since = (now - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -519,7 +597,7 @@ async def download_patient_report(
 
 
 @router.get("/overview")
-async def practitioner_overview(current_user: dict = Depends(require_practitioner)):
+async def practitioner_overview(current_user: dict = Depends(rate_limited_practitioner)):
     """Aggregate dashboard stats for the practitioner."""
     db = get_db()
     pid = current_user["_id"]

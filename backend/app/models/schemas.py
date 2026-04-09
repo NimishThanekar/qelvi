@@ -32,12 +32,24 @@ class UserUpdate(BaseModel):
     activity_level: Optional[str] = None
     dietary_preferences: Optional[List[str]] = None
     calorie_goal: Optional[int] = None
-    country: Optional[str] = None       # ISO 2-letter code, e.g. "IN"
+    country: Optional[str] = None        # ISO 2-letter code, e.g. "IN"
     festival_mode: Optional[str] = None  # "off" | "awareness" | "full"
+    budget_mode: Optional[bool] = None   # weekly budget tracking toggle
+    practitioner_consent: Optional[bool] = None  # patient can revoke data-sharing consent
 
 
 class PasswordChange(BaseModel):
     current_password: str
+    new_password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
     new_password: str
 
 
@@ -82,6 +94,7 @@ class UserResponse(BaseModel):
     role: str = "user"           # "user" | "practitioner" | "admin"
     is_practitioner: bool = False  # derived: role == "practitioner"
     practitioner_consent: Optional[bool] = None  # None = not a patient; True/False = consent status
+    budget_mode: Optional[bool] = None
 
 
 class Token(BaseModel):

@@ -28,6 +28,7 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 FREE_TIER_LIMIT = 10
 PRO_DAILY_LIMIT = 20
+_AI_GLOBAL_DAILY_LIMIT = int(os.getenv("AI_DAILY_GLOBAL_LIMIT", "5000"))
 
 SYSTEM_PROMPT = """\
 You are a calorie estimation assistant for an Indian food tracking app.
@@ -136,7 +137,16 @@ async def estimate(
             )
         raise HTTPException(status_code=403, detail="free_limit_reached")
 
-    # ── 2. Cache lookup ───────────────────────────────────────────────
+    # ── 2. Global circuit breaker ─────────────────────────────────────
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    global_doc = await db.ai_daily_totals.find_one({"date": today_str})
+    if global_doc and global_doc.get("count", 0) >= _AI_GLOBAL_DAILY_LIMIT:
+        raise HTTPException(
+            status_code=503,
+            detail="AI service temporarily unavailable. Please try again later.",
+        )
+
+    # ── 3. Cache lookup ───────────────────────────────────────────────
     cache_key = _cache_key(text)
     cached_doc = await db.ai_cache.find_one({"text_hash": cache_key})
 
@@ -149,7 +159,7 @@ async def estimate(
             cached=True,
         )
 
-    # ── 3. Groq API call ──────────────────────────────────────────────
+    # ── 4. Groq API call ──────────────────────────────────────────────
     api_key = os.getenv("GROQ_API_KEY", "")
     if not api_key:
         raise HTTPException(status_code=503, detail="AI service is not configured on this server")
@@ -176,15 +186,21 @@ async def estimate(
         raw = completion.choices[0].message.content.strip()
     except Exception as exc:
         logger.exception("Groq API call failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"AI service error: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail="AI estimation failed. Please try manual logging.",
+        )
 
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
         logger.error("JSON parse failed. Raw response was: %r — error: %s", raw, exc)
-        raise HTTPException(status_code=500, detail="AI returned an unparseable response. Please try again.")
+        raise HTTPException(
+            status_code=500,
+            detail="AI estimation failed. Please try manual logging.",
+        )
 
-    # ── 4. Validate and normalise items ──────────────────────────────
+    # ── 5. Validate and normalise items ──────────────────────────────
     items: list[dict] = []
     total = 0
     for entry in parsed.get("items", []):
@@ -206,7 +222,7 @@ async def estimate(
 
     response_payload = {"items": items, "total_calories": total, "confidence": confidence}
 
-    # ── 5. Store in cache ─────────────────────────────────────────────
+    # ── 6. Store in cache ─────────────────────────────────────────────
     await db.ai_cache.update_one(
         {"text_hash": cache_key},
         {
@@ -220,7 +236,14 @@ async def estimate(
         upsert=True,
     )
 
-    # ── 6. Decrement usage counter (only real API calls) ──────────────
+    # ── 7. Increment global daily counter (circuit breaker tracking) ──
+    await db.ai_daily_totals.update_one(
+        {"date": today_str},
+        {"$inc": {"count": 1}, "$setOnInsert": {"created_at": datetime.utcnow()}},
+        upsert=True,
+    )
+
+    # ── 8. Decrement per-user usage counter (only real API calls) ─────
     await _decrement_usage(current_user, is_pro, db)
 
     return AIEstimateResponse(
