@@ -8,6 +8,16 @@ from typing import Optional
 from app.database import get_db
 from app.routers.auth import require_practitioner
 
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    _REPORTLAB_AVAILABLE = True
+except ImportError:
+    _REPORTLAB_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/practitioner", tags=["practitioner"])
@@ -464,13 +474,10 @@ async def download_patient_report(
     top_foods = sorted(food_counts.items(), key=lambda x: x[1]["count"], reverse=True)[:10]
 
     # PDF generation
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    if not _REPORTLAB_AVAILABLE:
+        raise HTTPException(status_code=500, detail="PDF generation is unavailable. Please contact support.")
 
+    try:
         buf = BytesIO()
         doc = SimpleDocTemplate(
             buf, pagesize=A4,
@@ -576,24 +583,9 @@ async def download_patient_report(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    except ImportError:
-        # reportlab not installed — return JSON report as fallback text
-        import json
-        report = {
-            "patient": p.get("name"),
-            "period": {"start": since, "end": today_str},
-            "adherence_rate": adherence,
-            "avg_daily_calories": avg_cal,
-            "days_logged": days_logged,
-            "top_foods": [{"name": n, "count": d["count"]} for n, d in top_foods],
-        }
-        content = json.dumps(report, indent=2).encode()
-        filename = f"nutrition_report_{since}_to_{today_str}.json"
-        return StreamingResponse(
-            BytesIO(content),
-            media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
+    except Exception as e:
+        logger.error("PDF generation failed: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to generate PDF report.")
 
 
 @router.get("/overview")
