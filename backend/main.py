@@ -11,7 +11,7 @@ app = FastAPI(title="Calorie Tracker API", version="1.0.0")
 _ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "https://biological-kellen-qelvi-a4aab6c6.koyeb.app"
+    "https://subtle-scone-dfa3c3.netlify.app"
 ]
 _PRODUCTION_ORIGIN = os.getenv("PRODUCTION_ORIGIN", "")
 if _PRODUCTION_ORIGIN:
