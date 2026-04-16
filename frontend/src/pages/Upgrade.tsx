@@ -4,6 +4,8 @@ import { Check, X, Zap, Crown } from "lucide-react";
 import { subscriptionApi } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
+import CancelSubscriptionModal from "../components/CancelSubscriptionModal";
+import CheckoutModal from "../components/CheckoutModal";
 
 type Plan = "monthly" | "annual";
 
@@ -43,13 +45,23 @@ export default function Upgrade() {
   const navigate = useNavigate();
   const [plan, setPlan] = useState<Plan>("annual");
   const [loading, setLoading] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [checkout, setCheckout] = useState<{ open: boolean; plan: Plan; locked: boolean }>({
+    open: false, plan: "annual", locked: false,
+  });
 
   const isPro = user?.is_pro;
   const expiresAt = user?.pro_expires_at
     ? new Date(user.pro_expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
     : null;
 
-  const handleSubscribe = async () => {
+  // Opens the checkout modal — called from Subscribe / Upgrade buttons
+  const openCheckout = (overridePlan?: Plan, locked = false) => {
+    setCheckout({ open: true, plan: overridePlan ?? plan, locked });
+  };
+
+  // Called by CheckoutModal once the user confirms (with optional coupon)
+  const handleSubscribe = async (activePlan: Plan, couponCode?: string) => {
     setLoading(true);
     try {
       const loaded = await loadRazorpayScript();
@@ -58,17 +70,23 @@ export default function Upgrade() {
         return;
       }
 
-      const orderRes = await subscriptionApi.createOrder(plan);
+      const orderRes = await subscriptionApi.createOrder(activePlan, couponCode);
       const { order_id, amount, currency, key_id } = orderRes.data;
+
+      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || key_id;
+      if (!razorpayKey || razorpayKey === "undefined") {
+        toast.error("Payment configuration missing. Please contact support.");
+        return;
+      }
 
       await new Promise<void>((resolve, reject) => {
         const options = {
-          key: key_id || import.meta.env.VITE_RAZORPAY_KEY_ID,
+          key: razorpayKey,
           amount,
           currency,
           order_id,
           name: "Qelvi",
-          description: plan === "annual" ? "Pro Annual — ₹999/year" : "Pro Monthly — ₹149/month",
+          description: activePlan === "annual" ? "Pro Annual — ₹999/year" : "Pro Monthly — ₹149/month",
           image: "/icons/icon-192.png",
           prefill: { name: user?.name || "", email: user?.email || "" },
           theme: { color: "#a78bfa" },
@@ -79,10 +97,11 @@ export default function Upgrade() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                plan_type: plan,
+                plan_type: activePlan,
+                coupon_code: couponCode,
               });
               await refreshUser();
-              toast.success("Welcome to Pro! 🎉");
+              toast.success(activePlan === "annual" && isPro ? "Switched to Annual plan!" : "Welcome to Pro!");
               navigate("/dashboard");
               resolve();
             } catch {
@@ -133,13 +152,54 @@ export default function Upgrade() {
           style={{ borderColor: "rgba(167,139,250,0.3)", backgroundColor: "rgba(167,139,250,0.06)" }}
         >
           <Crown size={22} style={{ color: "#a78bfa", flexShrink: 0 }} />
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold" style={{ color: "#a78bfa" }}>You're on Pro</p>
             <p className="text-xs text-text-muted mt-0.5">
               {user?.plan_type === "annual" ? "Annual plan" : "Monthly plan"}
-              {expiresAt && ` · Renews ${expiresAt}`}
+              {expiresAt && ` · Expires ${expiresAt}`}
+              {user?.plan_type === "monthly" && " · Non-refundable, no auto-renewal"}
             </p>
           </div>
+          {user?.plan_type === "annual" && (
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="text-xs text-text-muted hover:text-red-400 transition-colors flex-shrink-0"
+            >
+              Cancel plan
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Monthly → Annual upgrade section */}
+      {isPro && user?.plan_type === "monthly" && (
+        <div
+          className="card p-5 mb-6"
+          style={{ borderColor: "rgba(163,230,53,0.25)", backgroundColor: "rgba(163,230,53,0.04)" }}
+        >
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <p className="text-sm font-semibold text-text-primary">Switch to Annual · Save 44%</p>
+              <p className="text-xs text-text-muted mt-1">
+                ₹999/year instead of ₹1,788/year · Your plan switches to annual starting today for a full year. Current monthly plan ends early.
+              </p>
+            </div>
+            <span
+              className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ backgroundColor: "#a3e635", color: "#000" }}
+            >
+              SAVE 44%
+            </span>
+          </div>
+          <button
+            onClick={() => openCheckout("annual", true)}
+            disabled={loading}
+            className="w-full py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#a3e635", color: "#000", opacity: loading ? 0.7 : 1 }}
+          >
+            <Zap size={14} />
+            {loading ? "Loading…" : "Upgrade to Annual · ₹999"}
+          </button>
         </div>
       )}
 
@@ -184,7 +244,7 @@ export default function Upgrade() {
       {/* CTA */}
       {!isPro && (
         <button
-          onClick={handleSubscribe}
+          onClick={() => openCheckout()}
           disabled={loading}
           className="w-full py-3.5 rounded-xl text-sm font-semibold mb-6 transition-all flex items-center justify-center gap-2"
           style={{ backgroundColor: "#a78bfa", color: "#fff", opacity: loading ? 0.7 : 1 }}
@@ -217,8 +277,34 @@ export default function Upgrade() {
 
       {/* Fine print */}
       <p className="text-[11px] text-text-muted text-center mt-4">
-        Payments processed securely by Razorpay · Cancel anytime
+        Payments processed securely by Razorpay · Annual plan: cancel anytime for a pro-rated refund · Monthly plan: non-refundable, no auto-renewal
       </p>
+
+      {isPro && user?.plan_type === "annual" && user?.pro_expires_at && (
+        <CancelSubscriptionModal
+          isOpen={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          onCancelled={async () => {
+            setShowCancelModal(false);
+            await refreshUser();
+            navigate("/dashboard");
+          }}
+          proExpiresAt={user.pro_expires_at}
+        />
+      )}
+
+      <CheckoutModal
+        isOpen={checkout.open}
+        onClose={() => setCheckout((c) => ({ ...c, open: false }))}
+        initialPlan={checkout.plan}
+        lockedPlan={checkout.locked}
+        user={user}
+        loading={loading}
+        onConfirm={(selectedPlan, couponCode) => {
+          setCheckout((c) => ({ ...c, open: false }));
+          handleSubscribe(selectedPlan, couponCode);
+        }}
+      />
     </div>
   );
 }

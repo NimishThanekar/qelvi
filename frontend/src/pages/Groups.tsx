@@ -124,7 +124,7 @@ export default function Groups() {
                 <div className="flex items-center gap-2">
                   <div
                     className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{ backgroundColor: "rgba(59,123,255,0.15)", color: "#3B7BFF" }}
+                    style={{ backgroundColor: "rgba(163,230,53,0.15)", color: "#a3e635" }}
                   >
                     Y
                   </div>

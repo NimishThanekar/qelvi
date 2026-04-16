@@ -89,6 +89,28 @@ async def get_recommendations(
         else:
             suggestions.append({**item, "times_logged": 0})
 
+    # Include user's custom foods in the recommendations pool
+    custom_foods = await db.custom_foods.find({"user_id": user_id}).to_list(length=200)
+    for cf in custom_foods:
+        scal = float(cf.get("calories_per_serving", 0))
+        if scal <= 0:
+            continue
+        if lower <= scal <= upper:
+            fid = str(cf["_id"])
+            count = food_counts.get(fid, 0)
+            item = {
+                "food_id": fid,
+                "food_name": cf.get("name", ""),
+                "category": "Custom",
+                "serving_type": "serving",
+                "serving_calories": scal,
+                "times_logged": count,
+            }
+            if count > 0:
+                from_history.append(item)
+            else:
+                suggestions.append(item)
+
     from_history.sort(key=lambda x: x["times_logged"], reverse=True)
     suggestions.sort(key=lambda x: abs(x["serving_calories"] - remaining_calories))
 

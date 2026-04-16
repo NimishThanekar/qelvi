@@ -149,7 +149,7 @@ export default function Layout() {
           onClick={() => setMobileOpen(false)}
           className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold mb-2 transition-all hover:opacity-90"
           style={{
-            background: "linear-gradient(135deg, rgba(163,230,53,0.08) 0%, rgba(59,123,255,0.08) 100%)",
+            background: "rgba(163,230,53,0.07)",
             border: "1px solid rgba(163,230,53,0.25)",
             color: "#a3e635",
           }}

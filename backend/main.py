@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from app.database import connect_db, close_db
-from app.routers import auth, food, logs, groups, custom_foods, ai, notifications, subscription, festivals, referral, practitioner
+from app.routers import auth, food, logs, groups, custom_foods, ai, notifications, subscription, festivals, referral, practitioner, admin
 
 app = FastAPI(title="Calorie Tracker API", version="1.0.0")
 
@@ -108,6 +108,13 @@ async def startup():
         name="ai_daily_totals_ttl",
     )
 
+    await db.coupon_notifications.create_index(
+        [("user_id", 1), ("code", 1)],
+        unique=True,
+        name="coupon_notifications_user_code",
+    )
+    await db.coupon_notifications.create_index("sent_at", name="coupon_notifications_sent_at")
+
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -125,6 +132,7 @@ app.include_router(subscription.router)
 app.include_router(festivals.router)
 app.include_router(referral.router)
 app.include_router(practitioner.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

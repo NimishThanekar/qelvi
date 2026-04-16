@@ -1,10 +1,133 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from bson import ObjectId
 from datetime import datetime, date, timedelta
+from pydantic import BaseModel
+from typing import Optional
 from app.database import get_db
 from app.routers.auth import get_admin_user
+from app.services.notifications import send_push
+from app.routers.subscription import COUPONS
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# ── Coupon segment config ────────────────────────────────────────────────────
+
+SEGMENT_CONFIG: dict[str, dict] = {
+    "ai_maxed": {
+        "code": "QV7K2X",
+        "label": "AI-maxed free users",
+        "description": "Used all 10 lifetime AI estimations, still free",
+        "title": "You've unlocked an exclusive offer",
+        "body": "Use code QV7K2X at checkout for a discount on Pro. Upgrade your AI logging.",
+        "url": "/upgrade",
+    },
+    "long_time_free": {
+        "code": "LY2Q6T",
+        "label": "Long-time free users",
+        "description": "Account 30+ days old, never upgraded",
+        "title": "A thank-you for sticking with Qelvi",
+        "body": "Use code LY2Q6T at checkout for a discount on Pro. You've earned it.",
+        "url": "/upgrade",
+    },
+    "inactive": {
+        "code": "WN3M8P",
+        "label": "Inactive users",
+        "description": "Free users with no meal log in the last 5 days",
+        "title": "We miss you",
+        "body": "Come back and use code WN3M8P at checkout for a discount on Pro.",
+        "url": "/upgrade",
+    },
+    "expired_pro": {
+        "code": "RP4X1Z",
+        "label": "Expired Pro users",
+        "description": "Pro expired 7+ days ago, haven't renewed",
+        "title": "Your Pro access expired",
+        "body": "Use code RP4X1Z at checkout for a discount to rejoin Pro.",
+        "url": "/upgrade",
+    },
+    "referral_reward": {
+        "code": "RF5J9L",
+        "label": "Referral reward",
+        "description": "Referred a user who has logged 7+ meals",
+        "title": "Your referral is thriving!",
+        "body": "Your friend is using Qelvi. Use code RF5J9L for a discount on Pro — a thank-you from us.",
+        "url": "/upgrade",
+    },
+}
+
+
+async def _get_eligible_user_ids(segment: str, db) -> list:
+    """Return list of ObjectIds eligible for a coupon segment, excluding already-notified users."""
+    code = SEGMENT_CONFIG[segment]["code"]
+
+    # Users already notified for this code
+    notified = await db.coupon_notifications.distinct("user_id", {"code": code})
+    notified_set = set(notified)
+
+    if segment == "ai_maxed":
+        users = await db.users.find(
+            {"ai_uses_remaining": 0, "is_pro": False},
+            {"_id": 1}
+        ).to_list(None)
+
+    elif segment == "long_time_free":
+        thirty_ago = datetime.utcnow() - timedelta(days=30)
+        users = await db.users.find(
+            {"created_at": {"$lte": thirty_ago}, "is_pro": False},
+            {"_id": 1}
+        ).to_list(None)
+
+    elif segment == "inactive":
+        five_days_ago = (date.today() - timedelta(days=5)).isoformat()
+        # Users who logged something recently
+        active_ids = await db.meal_logs.distinct(
+            "user_id", {"date": {"$gte": five_days_ago}}
+        )
+        # All users who have ever logged (not brand new)
+        ever_logged = await db.meal_logs.distinct("user_id", {})
+        inactive_ids = list(set(ever_logged) - set(active_ids))
+        users = await db.users.find(
+            {"_id": {"$in": inactive_ids}, "is_pro": False},
+            {"_id": 1}
+        ).to_list(None)
+
+    elif segment == "expired_pro":
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        users = await db.users.find(
+            {
+                "is_pro": False,
+                "pro_expires_at": {"$exists": True, "$lte": seven_days_ago},
+            },
+            {"_id": 1}
+        ).to_list(None)
+
+    elif segment == "referral_reward":
+        # Users who logged 7+ meals
+        pipeline = [
+            {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+            {"$match": {"count": {"$gte": 7}}},
+        ]
+        active_referred = await db.meal_logs.aggregate(pipeline).to_list(None)
+        active_referred_ids = [r["_id"] for r in active_referred]
+        # Find their referred_by (the referrers)
+        referred_docs = await db.users.find(
+            {"_id": {"$in": active_referred_ids}, "referred_by": {"$exists": True}},
+            {"referred_by": 1}
+        ).to_list(None)
+        referrer_ids = list({r["referred_by"] for r in referred_docs})
+        users = await db.users.find(
+            {"_id": {"$in": referrer_ids}},
+            {"_id": 1}
+        ).to_list(None)
+    else:
+        users = []
+
+    return [u["_id"] for u in users if u["_id"] not in notified_set]
+
+
+class CouponNotifyRequest(BaseModel):
+    segment: str
+    limit: int = 50
 
 
 @router.get("/overview")
@@ -300,3 +423,49 @@ async def get_group_stats(current_user: dict = Depends(get_admin_user)):
         "checkins_this_week": checkins_this_week,
         "most_active_group": most_active,
     }
+
+
+@router.get("/coupon-segments")
+async def get_coupon_segments(current_user: dict = Depends(get_admin_user)):
+    db = get_db()
+    result = {}
+    for segment, config in SEGMENT_CONFIG.items():
+        eligible = await _get_eligible_user_ids(segment, db)
+        result[segment] = {
+            "label": config["label"],
+            "description": config["description"],
+            "eligible_count": len(eligible),
+            "code": config["code"],
+        }
+    return result
+
+
+@router.post("/coupon-notify")
+async def send_coupon_notifications(
+    data: CouponNotifyRequest,
+    current_user: dict = Depends(get_admin_user),
+):
+    if data.segment not in SEGMENT_CONFIG:
+        raise HTTPException(status_code=400, detail="Invalid segment")
+    db = get_db()
+    config = SEGMENT_CONFIG[data.segment]
+    eligible_ids = await _get_eligible_user_ids(data.segment, db)
+    target_ids = eligible_ids[: data.limit]
+    users = await db.users.find(
+        {"_id": {"$in": target_ids}, "push_subscription": {"$exists": True}},
+    ).to_list(None)
+    sent = 0
+    for user in users:
+        sub = user.get("push_subscription")
+        if not sub:
+            continue
+        ok = await send_push(sub, config["title"], config["body"], config["url"])
+        if ok:
+            await db.coupon_notifications.insert_one({
+                "user_id": user["_id"],
+                "code": config["code"],
+                "segment": data.segment,
+                "sent_at": datetime.utcnow(),
+            })
+            sent += 1
+    return {"sent": sent, "eligible": len(eligible_ids), "targeted": len(target_ids)}

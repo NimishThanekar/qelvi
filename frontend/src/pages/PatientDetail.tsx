@@ -462,29 +462,49 @@ export default function PatientDetail() {
                         {Math.round(dayTotal)} kcal
                       </span>
                     </button>
-                    {expanded && (
-                      <div className="border-t border-bg-border px-4 pb-3 space-y-2 pt-2">
-                        {dayLogs.map((log) => (
-                          <div key={log.id} className="text-xs">
-                            <div className="flex items-center justify-between text-text-secondary font-medium mb-1">
-                              <span className="capitalize">{mealLabel(log.meal_type)}</span>
-                              <div className="flex items-center gap-2">
-                                {log.context && (
-                                  <span className="text-text-muted">{contextLabel(log.context)}</span>
-                                )}
-                                <span>{Math.round(log.total_calories)} kcal</span>
+                    {expanded && (() => {
+                      const mealOrder = ["breakfast", "lunch", "dinner", "snack", "adhoc"];
+                      const grouped: Record<string, MealLog[]> = {};
+                      for (const log of dayLogs) {
+                        if (!grouped[log.meal_type]) grouped[log.meal_type] = [];
+                        grouped[log.meal_type].push(log);
+                      }
+                      const orderedTypes = [
+                        ...mealOrder.filter((t) => grouped[t]),
+                        ...Object.keys(grouped).filter((t) => !mealOrder.includes(t)),
+                      ];
+                      return (
+                        <div className="border-t border-bg-border px-4 pb-3 pt-2 space-y-3">
+                          {orderedTypes.map((mealType) => {
+                            const logs = grouped[mealType];
+                            const mealTotal = logs.reduce((s, l) => s + l.total_calories, 0);
+                            const allEntries = logs.flatMap((l) => l.entries);
+                            const context = logs.find((l) => l.context)?.context;
+                            return (
+                              <div key={mealType} className="text-xs">
+                                <div className="flex items-center justify-between text-text-secondary font-medium mb-1.5">
+                                  <span>{mealLabel(mealType)}</span>
+                                  <div className="flex items-center gap-2">
+                                    {context && (
+                                      <span className="text-text-muted">{contextLabel(context)}</span>
+                                    )}
+                                    <span>{Math.round(mealTotal)} kcal</span>
+                                  </div>
+                                </div>
+                                <div className="pl-2 space-y-0.5">
+                                  {allEntries.map((e, i) => (
+                                    <div key={i} className="flex justify-between text-text-muted py-0.5">
+                                      <span>{e.food_name}</span>
+                                      <span>{Math.round(e.calories)} kcal</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                            {log.entries.map((e, i) => (
-                              <div key={i} className="flex justify-between text-text-muted pl-2 py-0.5">
-                                <span>{e.food_name}</span>
-                                <span>{Math.round(e.calories)} kcal</span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })

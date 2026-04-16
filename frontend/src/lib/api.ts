@@ -105,15 +105,19 @@ export const aiApi = {
 
 // Subscription / Pro
 export const subscriptionApi = {
-  createOrder: (plan_type: string) =>
-    api.post('/subscription/create-order', { plan_type }),
+  createOrder: (plan_type: string, coupon_code?: string) =>
+    api.post('/subscription/create-order', { plan_type, ...(coupon_code ? { coupon_code } : {}) }),
   verify: (data: {
     razorpay_order_id: string;
     razorpay_payment_id: string;
     razorpay_signature: string;
     plan_type: string;
+    coupon_code?: string;
   }) => api.post('/subscription/verify', data),
+  validateCoupon: (code: string, plan_type: string) =>
+    api.post('/subscription/validate-coupon', { code, plan_type }),
   getStatus: () => api.get('/subscription/status'),
+  cancel: (reason: string) => api.post('/subscription/cancel', { reason }),
 };
 
 // Festivals
@@ -132,6 +136,9 @@ export const adminApi = {
     api.post('/notifications/broadcast', data),
   triggerReminders: (secret: string) =>
     api.post(`/notifications/send-reminders?secret=${encodeURIComponent(secret)}`),
+  couponSegments: () => api.get('/admin/coupon-segments'),
+  couponNotify: (segment: string, limit: number) =>
+    api.post('/admin/coupon-notify', { segment, limit }),
 };
 
 // Custom Foods (user-exclusive)
