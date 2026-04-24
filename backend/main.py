@@ -9,7 +9,10 @@ app = FastAPI(title="Calorie Tracker API", version="1.0.0")
 
 # Explicit CORS allowlist — no wildcard
 _ALLOWED_ORIGINS = [
-    "http://qelvi.netlify.app"
+    "http://qelvi.netlify.app",
+    "https://qelvi.netlify.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
 ]
 _PRODUCTION_ORIGIN = os.getenv("PRODUCTION_ORIGIN", "")
 if _PRODUCTION_ORIGIN:
