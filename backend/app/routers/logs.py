@@ -69,6 +69,11 @@ async def _check_referral_activation(db, user: dict) -> None:
 
 @router.post("/", response_model=dict)
 async def create_log(data: MealLogCreate, current_user: dict = Depends(get_current_user)):
+    is_admin = current_user.get("role") == "admin" or current_user.get("is_admin", False)
+    today_str = date.today().isoformat()
+    if not is_admin and data.date < today_str:
+        raise HTTPException(status_code=403, detail="You can only log meals for today. Past dates are not allowed.")
+
     db = get_db()
     total_calories = sum(e.calories for e in data.entries)
 

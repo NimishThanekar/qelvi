@@ -17,6 +17,27 @@ export interface FoodItem {
   food_image_url?: string;
   is_custom?: boolean;
   combo_items?: { food_id: string; food_name: string; calories: number; weight_g: number; quantity: number }[];
+  // macros per 100 g/ml
+  protein_g?: number;
+  carbs_g?: number;
+  fat_g?: number;
+  fiber_g?: number;
+  sugar_g?: number;
+  saturated_fat_g?: number;
+  // liquid/solid classification
+  food_type?: 'solid' | 'liquid';
+  serving_unit?: 'g' | 'ml';
+  scoop_label?: string;
+  bowl_label?: string;
+}
+
+export interface MacroTotals {
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number;
+  sugar_g: number;
+  saturated_fat_g: number;
 }
 
 export interface MealEntry {
@@ -31,6 +52,9 @@ export interface MealEntry {
   protein_g?: number;
   carbs_g?: number;
   fat_g?: number;
+  fiber_g?: number;
+  sugar_g?: number;
+  saturated_fat_g?: number;
 }
 
 export interface MealLog {

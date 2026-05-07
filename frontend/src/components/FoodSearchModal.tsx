@@ -215,6 +215,23 @@ export default function FoodSearchModal({
     return 0;
   };
 
+  const getMacros = () => {
+    if (!selected || selected.protein_g == null) return null;
+    const wt = getWeight();
+    if (!wt) return null;
+    const r = wt / 100;
+    return {
+      protein_g:       Math.round((selected.protein_g       ?? 0) * r * 10) / 10,
+      carbs_g:         Math.round((selected.carbs_g         ?? 0) * r * 10) / 10,
+      fat_g:           Math.round((selected.fat_g           ?? 0) * r * 10) / 10,
+      fiber_g:         Math.round((selected.fiber_g         ?? 0) * r * 10) / 10,
+      sugar_g:         Math.round((selected.sugar_g         ?? 0) * r * 10) / 10,
+      saturated_fat_g: Math.round((selected.saturated_fat_g ?? 0) * r * 10) / 10,
+    };
+  };
+
+  const unit = selected?.serving_unit ?? 'g';
+
   const servingOptions: {
     value: ServingType;
     label: string;
@@ -232,14 +249,20 @@ export default function FoodSearchModal({
         },
         {
           value: "scoop",
-          label: "Scoop",
+          label: selected.scoop_label
+            ? selected.scoop_label.charAt(0).toUpperCase() + selected.scoop_label.slice(1)
+            : "Scoop",
           available: !!selected.scoop_g,
           grams: selected.scoop_g,
           kcal: selected.kcal_per_scoop,
         },
         {
           value: "bowl",
-          label: selected.is_custom ? "Serving" : "Bowl",
+          label: selected.is_custom
+            ? "Serving"
+            : selected.bowl_label
+            ? selected.bowl_label.charAt(0).toUpperCase() + selected.bowl_label.slice(1)
+            : "Bowl",
           available: !!selected.bowl_g,
           grams: selected.bowl_g,
           kcal: selected.kcal_per_bowl,
@@ -251,7 +274,7 @@ export default function FoodSearchModal({
           grams: selected.restaurant_g,
           kcal: selected.kcal_per_restaurant_serving,
         },
-        { value: "custom", label: "Custom (g)", available: !selected.is_custom },
+        { value: "custom", label: `Custom (${unit})`, available: !selected.is_custom },
       ]
     : [];
 
@@ -261,6 +284,7 @@ export default function FoodSearchModal({
     try {
       const cal = getCalories();
       const wt = getWeight();
+      const macros = getMacros();
       await logsApi.create({
         date,
         meal_type: mealType,
@@ -275,6 +299,12 @@ export default function FoodSearchModal({
             quantity,
             weight_g: wt,
             calories: cal,
+            protein_g:       macros?.protein_g,
+            carbs_g:         macros?.carbs_g,
+            fat_g:           macros?.fat_g,
+            fiber_g:         macros?.fiber_g,
+            sugar_g:         macros?.sugar_g,
+            saturated_fat_g: macros?.saturated_fat_g,
           },
         ],
       });
@@ -1292,7 +1322,7 @@ export default function FoodSearchModal({
                             }`}
                           >
                             <span>{opt.label}</span>
-                            {opt.grams && <span className="text-text-muted">{opt.grams}g</span>}
+                            {opt.grams && <span className="text-text-muted">{opt.grams}{unit}</span>}
                           </button>
                         ))}
                     </div>
@@ -1300,7 +1330,7 @@ export default function FoodSearchModal({
 
                   {serving === "custom" && (
                     <div>
-                      <label className="label">Grams</label>
+                      <label className="label">{unit === 'ml' ? 'Millilitres' : 'Grams'}</label>
                       <input
                         type="number"
                         className="input text-sm"
@@ -1374,10 +1404,33 @@ export default function FoodSearchModal({
                   <div className="bg-bg-elevated rounded-xl p-3">
                     <div className="flex justify-between text-xs text-text-muted mb-1">
                       <span>Calories</span>
-                      <span>{getWeight()}g total</span>
+                      <span>{getWeight()}{unit} total</span>
                     </div>
                     <p className="text-2xl font-bold text-accent-primary">{Math.round(getCalories())}</p>
                     <p className="text-xs text-text-muted">kcal</p>
+
+                    {/* Macro breakdown */}
+                    {(() => {
+                      const m = getMacros();
+                      if (!m) return null;
+                      return (
+                        <div className="mt-3 pt-3 border-t border-bg-border grid grid-cols-3 gap-1.5">
+                          {[
+                            { label: "Protein", value: m.protein_g,  color: "#38bdf8" },
+                            { label: "Carbs",   value: m.carbs_g,    color: "#fbbf24" },
+                            { label: "Fat",     value: m.fat_g,      color: "#fb923c" },
+                            { label: "Fiber",   value: m.fiber_g,    color: "#34d399" },
+                            { label: "Sugar",   value: m.sugar_g,    color: "#a78bfa" },
+                            { label: "Sat.Fat", value: m.saturated_fat_g, color: "#f87171" },
+                          ].map(({ label, value, color }) => (
+                            <div key={label} className="text-center">
+                              <p className="text-[11px] font-semibold" style={{ color }}>{value}g</p>
+                              <p className="text-[9px] text-text-muted leading-tight">{label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

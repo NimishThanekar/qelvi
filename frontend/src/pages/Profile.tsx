@@ -1,6 +1,22 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
-import { User, Target, Activity, Utensils, Scale, Save, Bell, BellOff, Crown, Zap, Sparkles, Copy, Share2, Gift, ShieldCheck } from "lucide-react";
+import {
+  User,
+  Target,
+  Activity,
+  Utensils,
+  Scale,
+  Save,
+  Bell,
+  BellOff,
+  Crown,
+  Zap,
+  Sparkles,
+  Copy,
+  Share2,
+  Gift,
+  ShieldCheck,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { setupPushNotifications, unsubscribePush } from "../lib/push";
 import { referralApi } from "../lib/api";
@@ -18,22 +34,38 @@ const COMMON_COUNTRIES = [
 ];
 
 const OTHER_COUNTRIES = [
-  { code: "AF", name: "Afghanistan" }, { code: "AR", name: "Argentina" },
-  { code: "BD", name: "Bangladesh" }, { code: "BR", name: "Brazil" },
-  { code: "CN", name: "China" }, { code: "EG", name: "Egypt" },
-  { code: "FR", name: "France" }, { code: "GH", name: "Ghana" },
-  { code: "ID", name: "Indonesia" }, { code: "IT", name: "Italy" },
-  { code: "JP", name: "Japan" }, { code: "KE", name: "Kenya" },
-  { code: "KR", name: "South Korea" }, { code: "LK", name: "Sri Lanka" },
-  { code: "MX", name: "Mexico" }, { code: "NG", name: "Nigeria" },
-  { code: "NL", name: "Netherlands" }, { code: "NP", name: "Nepal" },
-  { code: "NZ", name: "New Zealand" }, { code: "PH", name: "Philippines" },
-  { code: "PK", name: "Pakistan" }, { code: "PT", name: "Portugal" },
-  { code: "QA", name: "Qatar" }, { code: "RU", name: "Russia" },
-  { code: "SA", name: "Saudi Arabia" }, { code: "SE", name: "Sweden" },
-  { code: "TH", name: "Thailand" }, { code: "TR", name: "Turkey" },
-  { code: "TZ", name: "Tanzania" }, { code: "UA", name: "Ukraine" },
-  { code: "VN", name: "Vietnam" }, { code: "ZA", name: "South Africa" },
+  { code: "AF", name: "Afghanistan" },
+  { code: "AR", name: "Argentina" },
+  { code: "BD", name: "Bangladesh" },
+  { code: "BR", name: "Brazil" },
+  { code: "CN", name: "China" },
+  { code: "EG", name: "Egypt" },
+  { code: "FR", name: "France" },
+  { code: "GH", name: "Ghana" },
+  { code: "ID", name: "Indonesia" },
+  { code: "IT", name: "Italy" },
+  { code: "JP", name: "Japan" },
+  { code: "KE", name: "Kenya" },
+  { code: "KR", name: "South Korea" },
+  { code: "LK", name: "Sri Lanka" },
+  { code: "MX", name: "Mexico" },
+  { code: "NG", name: "Nigeria" },
+  { code: "NL", name: "Netherlands" },
+  { code: "NP", name: "Nepal" },
+  { code: "NZ", name: "New Zealand" },
+  { code: "PH", name: "Philippines" },
+  { code: "PK", name: "Pakistan" },
+  { code: "PT", name: "Portugal" },
+  { code: "QA", name: "Qatar" },
+  { code: "RU", name: "Russia" },
+  { code: "SA", name: "Saudi Arabia" },
+  { code: "SE", name: "Sweden" },
+  { code: "TH", name: "Thailand" },
+  { code: "TR", name: "Turkey" },
+  { code: "TZ", name: "Tanzania" },
+  { code: "UA", name: "Ukraine" },
+  { code: "VN", name: "Vietnam" },
+  { code: "ZA", name: "South Africa" },
   { code: "ZW", name: "Zimbabwe" },
 ];
 
@@ -48,14 +80,16 @@ const FESTIVAL_MODES = [
     value: "awareness",
     icon: "👀",
     label: "Awareness",
-    sublabel: "Festival banners, food suggestions, and festive UI — goals unchanged",
+    sublabel:
+      "Festival banners, food suggestions, and festive UI — goals unchanged",
     recommended: true,
   },
   {
     value: "full",
     icon: "🎯",
     label: "Full Adjust",
-    sublabel: "Auto-adjusts your calorie goal during festivals + recovery plans after",
+    sublabel:
+      "Auto-adjusts your calorie goal during festivals + recovery plans after",
   },
 ] as const;
 
@@ -91,17 +125,22 @@ interface ReferralStats {
 export default function Profile() {
   const { user, updateUser } = useAuthStore();
   const [saving, setSaving] = useState(false);
-  const [pushPermission, setPushPermission] = useState<NotificationPermission | null>(null);
+  const [pushPermission, setPushPermission] =
+    useState<NotificationPermission | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
-  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(
+    null
+  );
   const [consentLoading, setConsentLoading] = useState(false);
-  const [consentValue, setConsentValue] = useState(user?.practitioner_consent ?? true);
+  const [consentValue, setConsentValue] = useState(
+    user?.practitioner_consent ?? true
+  );
 
   useEffect(() => {
-    if (!('Notification' in window)) return;
+    if (!("Notification" in window)) return;
     setPushPermission(Notification.permission);
-    if ('serviceWorker' in navigator) {
+    if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready
         .then((reg) => reg.pushManager.getSubscription())
         .then((sub) => setPushSubscribed(!!sub))
@@ -110,10 +149,15 @@ export default function Profile() {
   }, []);
 
   useEffect(() => {
-    referralApi.stats().then((res) => setReferralStats(res.data)).catch(() => {});
+    referralApi
+      .stats()
+      .then((res) => setReferralStats(res.data))
+      .catch(() => {});
   }, []);
   const [country, setCountry] = useState(user?.country || "IN");
-  const [festivalMode, setFestivalMode] = useState<string>(user?.festival_mode || "awareness");
+  const [festivalMode, setFestivalMode] = useState<string>(
+    user?.festival_mode || "awareness"
+  );
   const [festivalSaving, setFestivalSaving] = useState(false);
 
   const handleCountryChange = async (code: string) => {
@@ -182,12 +226,17 @@ export default function Profile() {
       setPushPermission("granted");
       toast.success("Notifications enabled");
     } else {
-      const current = 'Notification' in window ? Notification.permission : 'denied';
+      const current =
+        "Notification" in window ? Notification.permission : "denied";
       setPushPermission(current as NotificationPermission);
       if (current === "denied") {
-        toast.error("Notifications are blocked — enable them in your browser settings");
+        toast.error(
+          "Notifications are blocked — enable them in your browser settings"
+        );
       } else {
-        toast.error("Could not enable notifications. Try again after installing the app.");
+        toast.error(
+          "Could not enable notifications. Try again after installing the app."
+        );
       }
     }
     setPushLoading(false);
@@ -265,21 +314,31 @@ export default function Profile() {
       {user?.is_pro ? (
         <div
           className="card p-4 mb-4 flex items-center gap-3"
-          style={{ borderColor: "rgba(167,139,250,0.3)", backgroundColor: "rgba(167,139,250,0.06)" }}
+          style={{
+            borderColor: "rgba(167,139,250,0.3)",
+            backgroundColor: "rgba(167,139,250,0.06)",
+          }}
         >
           <Crown size={18} style={{ color: "#a78bfa", flexShrink: 0 }} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold" style={{ color: "#a78bfa" }}>Pro plan active</p>
+            <p className="text-sm font-semibold" style={{ color: "#a78bfa" }}>
+              Pro plan active
+            </p>
             {user.pro_expires_at && (
               <p className="text-xs text-text-muted mt-0.5">
                 {user.plan_type === "annual" ? "Annual" : "Monthly"} · Expires{" "}
                 {new Date(user.pro_expires_at).toLocaleDateString("en-IN", {
-                  day: "numeric", month: "long", year: "numeric",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
                 })}
               </p>
             )}
           </div>
-          <a href="/upgrade" className="text-xs text-text-muted hover:text-text-secondary transition-colors">
+          <a
+            href="/upgrade"
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+          >
             Manage
           </a>
         </div>
@@ -291,10 +350,16 @@ export default function Profile() {
         >
           <Zap size={18} style={{ color: "#a3e635", flexShrink: 0 }} />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-text-primary">Upgrade to Pro</p>
-            <p className="text-xs text-text-muted mt-0.5">AI logging, meal suggestions, full insights · from ₹149/mo</p>
+            <p className="text-sm font-semibold text-text-primary">
+              Upgrade to Pro
+            </p>
+            <p className="text-xs text-text-muted mt-0.5">
+              AI logging, meal suggestions, full insights · from ₹149/mo
+            </p>
           </div>
-          <span className="text-xs font-semibold" style={{ color: "#a3e635" }}>View →</span>
+          <span className="text-xs font-semibold" style={{ color: "#a3e635" }}>
+            View →
+          </span>
         </a>
       )}
 
@@ -303,7 +368,9 @@ export default function Profile() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-4">
             <User size={15} className="text-text-muted" />
-            <h3 className="text-sm font-medium text-text-secondary">Basic info</h3>
+            <h3 className="text-sm font-medium text-text-secondary">
+              Basic info
+            </h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -343,7 +410,9 @@ export default function Profile() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-4">
             <Scale size={15} className="text-text-muted" />
-            <h3 className="text-sm font-medium text-text-secondary">Body metrics</h3>
+            <h3 className="text-sm font-medium text-text-secondary">
+              Body metrics
+            </h3>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -468,24 +537,32 @@ export default function Profile() {
         </div>
 
         {/* Push notifications */}
-        {'Notification' in window && (
+        {"Notification" in window && (
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-3">
               <Bell size={15} className="text-text-muted" />
-              <h3 className="text-sm font-medium text-text-secondary">Push notifications</h3>
+              <h3 className="text-sm font-medium text-text-secondary">
+                Push notifications
+              </h3>
             </div>
             <div className="flex items-center justify-between">
               <div>
                 {pushPermission === "denied" ? (
-                  <p className="text-xs text-red-400">Blocked in browser settings</p>
+                  <p className="text-xs text-red-400">
+                    Blocked in browser settings
+                  </p>
                 ) : pushSubscribed ? (
-                  <p className="text-xs text-text-muted">Reminders and updates are enabled</p>
+                  <p className="text-xs text-text-muted">
+                    Reminders and updates are enabled
+                  </p>
                 ) : (
-                  <p className="text-xs text-text-muted">Get meal reminders and streak alerts</p>
+                  <p className="text-xs text-text-muted">
+                    Get meal reminders and streak alerts
+                  </p>
                 )}
               </div>
-              {pushPermission !== "denied" && (
-                pushSubscribed ? (
+              {pushPermission !== "denied" &&
+                (pushSubscribed ? (
                   <button
                     onClick={handleDisablePush}
                     disabled={pushLoading}
@@ -503,8 +580,7 @@ export default function Profile() {
                     <Bell size={12} />
                     {pushLoading ? "..." : "Enable"}
                   </button>
-                )
-              )}
+                ))}
             </div>
           </div>
         )}
@@ -513,7 +589,9 @@ export default function Profile() {
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-4">
             <Sparkles size={15} style={{ color: "#f59e0b" }} />
-            <h3 className="text-sm font-medium text-text-secondary">Festival Intelligence</h3>
+            <h3 className="text-sm font-medium text-text-secondary">
+              Festival Intelligence
+            </h3>
           </div>
 
           {/* Country */}
@@ -525,11 +603,15 @@ export default function Profile() {
               onChange={(e) => handleCountryChange(e.target.value)}
             >
               {COMMON_COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>{c.name}</option>
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
               ))}
               <option disabled>──────────────</option>
               {OTHER_COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>{c.name}</option>
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
               ))}
             </select>
             <p className="text-xs text-text-muted mt-1.5">
@@ -549,8 +631,12 @@ export default function Profile() {
                   disabled={festivalSaving}
                   className="card-elevated p-3 flex flex-col items-center gap-1.5 rounded-xl border transition-all text-center"
                   style={{
-                    borderColor: active ? "rgba(163,230,53,0.5)" : "var(--bg-border)",
-                    backgroundColor: active ? "rgba(163,230,53,0.05)" : undefined,
+                    borderColor: active
+                      ? "rgba(163,230,53,0.5)"
+                      : "var(--bg-border)",
+                    backgroundColor: active
+                      ? "rgba(163,230,53,0.05)"
+                      : undefined,
                     opacity: festivalSaving ? 0.6 : 1,
                   }}
                 >
@@ -562,7 +648,10 @@ export default function Profile() {
                     {"recommended" in mode && mode.recommended && (
                       <span
                         className="inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ backgroundColor: "rgba(163,230,53,0.15)", color: "#a3e635" }}
+                        style={{
+                          backgroundColor: "rgba(163,230,53,0.15)",
+                          color: "#a3e635",
+                        }}
                       >
                         Recommended
                       </span>
@@ -582,10 +671,16 @@ export default function Profile() {
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4">
               <Gift size={15} style={{ color: "#a3e635" }} />
-              <h3 className="text-sm font-medium text-text-secondary">Refer a Friend</h3>
+              <h3 className="text-sm font-medium text-text-secondary">
+                Refer a Friend
+              </h3>
             </div>
             <p className="text-xs text-text-muted mb-4">
-              Share your code — you both get <span className="text-accent-primary font-semibold">7 days of Pro free</span> when they sign up. You can earn up to 35 days total (5 referrals).
+              Share your code — you both get{" "}
+              <span className="text-accent-primary font-semibold">
+                7 days of Pro free
+              </span>{" "}
+              when they sign up. You can earn up to 35 days total (5 referrals).
             </p>
 
             {/* Code row */}
@@ -609,10 +704,15 @@ export default function Profile() {
 
             {/* Stats */}
             <div className="flex items-center gap-1.5 text-xs text-text-muted mb-4">
-              <span className="text-text-primary font-semibold">{referralStats.referral_count}</span>
-              {referralStats.referral_count === 1 ? "friend" : "friends"} referred
+              <span className="text-text-primary font-semibold">
+                {referralStats.referral_count}
+              </span>
+              {referralStats.referral_count === 1 ? "friend" : "friends"}{" "}
+              referred
               <span className="text-bg-border mx-1">·</span>
-              <span className="text-accent-primary font-semibold">{referralStats.total_pro_days_earned}</span>
+              <span className="text-accent-primary font-semibold">
+                {referralStats.total_pro_days_earned}
+              </span>
               days of Pro earned
             </div>
 
@@ -620,11 +720,13 @@ export default function Profile() {
             <button
               onClick={async () => {
                 const code = referralStats.referral_code;
-                const msg = `I'm tracking my calories with Qelvi — it actually understands Indian food! Use my code ${code} when you sign up and we both get 7 days of Pro free. https://qelvi.com/register?ref=${code}`;
+                const msg = `I'm tracking my calories with Qelvi — it actually understands Indian food! Use my code ${code} when you sign up and we both get 7 days of Pro free. https://qelvi.netlify.app/register?ref=${code}`;
                 if (navigator.share) {
                   try {
                     await navigator.share({ text: msg });
-                  } catch { /* user cancelled */ }
+                  } catch {
+                    /* user cancelled */
+                  }
                 } else {
                   await navigator.clipboard.writeText(msg);
                   toast.success("Share message copied to clipboard!");
@@ -643,7 +745,9 @@ export default function Profile() {
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4">
               <ShieldCheck size={15} style={{ color: "#38bdf8" }} />
-              <h3 className="text-sm font-medium text-text-secondary">Data Sharing</h3>
+              <h3 className="text-sm font-medium text-text-secondary">
+                Data Sharing
+              </h3>
             </div>
 
             <div className="flex items-start justify-between gap-4">
@@ -652,7 +756,8 @@ export default function Profile() {
                   Your nutrition data is shared with{" "}
                   <span className="font-semibold">
                     {user.practitioner_name || "your dietician"}
-                  </span>.
+                  </span>
+                  .
                 </p>
                 <p className="text-xs text-text-muted mt-1">
                   {consentValue
@@ -670,11 +775,15 @@ export default function Profile() {
                   backgroundColor: consentValue ? "#38bdf8" : "#374151",
                   opacity: consentLoading ? 0.6 : 1,
                 }}
-                aria-label={consentValue ? "Disable data sharing" : "Enable data sharing"}
+                aria-label={
+                  consentValue ? "Disable data sharing" : "Enable data sharing"
+                }
               >
                 <span
                   className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200"
-                  style={{ left: consentValue ? "calc(100% - 1.375rem)" : "0.125rem" }}
+                  style={{
+                    left: consentValue ? "calc(100% - 1.375rem)" : "0.125rem",
+                  }}
                 />
               </button>
             </div>
@@ -682,9 +791,13 @@ export default function Profile() {
             {!consentValue && (
               <p
                 className="text-xs mt-3 px-3 py-2 rounded-lg"
-                style={{ backgroundColor: "rgba(248,113,113,0.08)", color: "#f87171" }}
+                style={{
+                  backgroundColor: "rgba(248,113,113,0.08)",
+                  color: "#f87171",
+                }}
               >
-                Data sharing is off. Your dietician's dashboard shows "Access Revoked" for your account.
+                Data sharing is off. Your dietician's dashboard shows "Access
+                Revoked" for your account.
               </p>
             )}
           </div>

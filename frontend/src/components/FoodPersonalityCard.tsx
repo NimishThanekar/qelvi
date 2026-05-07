@@ -12,8 +12,10 @@ export default function FoodPersonalityCard({ data, onClose }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [capturing, setCapturing] = useState(false);
 
-  const ctxLabel = MEAL_CONTEXTS.find((c) => c.value === data.stats.top_context)?.label
-    ?? data.stats.top_context ?? "Home";
+  const ctxLabel =
+    MEAL_CONTEXTS.find((c) => c.value === data.stats.top_context)?.label ??
+    data.stats.top_context ??
+    "Home";
 
   const stats = [
     { label: "Days tracked", value: `${data.stats.tracked_days}d` },
@@ -38,7 +40,9 @@ export default function FoodPersonalityCard({ data, onClose }: Props) {
       );
       if (!blob) return;
 
-      const file = new File([blob], "my-food-personality.png", { type: "image/png" });
+      const file = new File([blob], "my-food-personality.png", {
+        type: "image/png",
+      });
 
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
@@ -103,14 +107,23 @@ export default function FoodPersonalityCard({ data, onClose }: Props) {
               width: 200,
               height: 200,
               borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%)",
+              background:
+                "radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%)",
               pointerEvents: "none",
             }}
           />
 
           {/* Top label */}
           <div style={{ textAlign: "center", zIndex: 1 }}>
-            <p style={{ fontSize: 11, color: "#666", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+            <p
+              style={{
+                fontSize: 11,
+                color: "#666",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                marginBottom: 4,
+              }}
+            >
               My Food Personality
             </p>
           </div>
@@ -172,10 +185,26 @@ export default function FoodPersonalityCard({ data, onClose }: Props) {
                   textAlign: "center",
                 }}
               >
-                <p style={{ fontSize: 18, fontWeight: 700, color: "#a78bfa", margin: 0, marginBottom: 2 }}>
+                <p
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: "#a78bfa",
+                    margin: 0,
+                    marginBottom: 2,
+                  }}
+                >
                   {s.value}
                 </p>
-                <p style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+                <p
+                  style={{
+                    fontSize: 10,
+                    color: "#666",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    margin: 0,
+                  }}
+                >
                   {s.label}
                 </p>
               </div>
@@ -184,7 +213,9 @@ export default function FoodPersonalityCard({ data, onClose }: Props) {
 
           {/* Watermark */}
           <div style={{ zIndex: 1, textAlign: "center" }}>
-            <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.06em" }}>qelvi.com</p>
+            <p style={{ fontSize: 11, color: "#444", letterSpacing: "0.06em" }}>
+              qelvi.netlify.app
+            </p>
           </div>
         </div>
 

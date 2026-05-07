@@ -116,6 +116,18 @@ class FoodItem(BaseModel):
     kcal_per_scoop: Optional[float] = None
     kcal_per_bowl: Optional[float] = None
     kcal_per_restaurant_serving: Optional[float] = None
+    # macros per 100 g/ml — populated by enrich_foods.py
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fat_g: Optional[float] = None
+    fiber_g: Optional[float] = None
+    sugar_g: Optional[float] = None
+    saturated_fat_g: Optional[float] = None
+    # liquid/solid classification
+    food_type: str = "solid"       # "solid" | "liquid"
+    serving_unit: str = "g"        # "g"     | "ml"
+    scoop_label: str = "scoop"     # e.g. "cup", "small bowl"
+    bowl_label: str = "bowl"       # e.g. "glass", "bowl"
 
 
 # Meal Log
@@ -131,6 +143,9 @@ class MealEntry(BaseModel):
     protein_g: Optional[float] = None
     carbs_g: Optional[float] = None
     fat_g: Optional[float] = None
+    fiber_g: Optional[float] = None
+    sugar_g: Optional[float] = None
+    saturated_fat_g: Optional[float] = None
 
 
 class MealLog(BaseModel):

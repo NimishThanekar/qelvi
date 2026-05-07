@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_vapid_claims() -> dict:
-    email = os.getenv("VAPID_CLAIMS_EMAIL", "admin@qelvi.com")
+    email = os.getenv("VAPID_CLAIMS_EMAIL", "admin@qelvi.netlify.app")
     return {"sub": f"mailto:{email}"}
 
 

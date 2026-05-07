@@ -2,7 +2,19 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { practitionerApi } from "../lib/api";
-import { Users, AlertTriangle, TrendingUp, Activity, Search, ChevronUp, ChevronDown, UserPlus, X, Copy, MessageCircle } from "lucide-react";
+import {
+  Users,
+  AlertTriangle,
+  TrendingUp,
+  Activity,
+  Search,
+  ChevronUp,
+  ChevronDown,
+  UserPlus,
+  X,
+  Copy,
+  MessageCircle,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 interface OverviewData {
@@ -46,11 +58,7 @@ function relativeTime(days: number | null): string {
 
 function StatusDot({ days }: { days: number | null }) {
   const color =
-    days === null || days > 7
-      ? "#f87171"
-      : days >= 3
-      ? "#fbbf24"
-      : "#a3e635";
+    days === null || days > 7 ? "#f87171" : days >= 3 ? "#fbbf24" : "#a3e635";
   return (
     <span
       style={{
@@ -116,7 +124,7 @@ export default function PractitionerDashboard() {
         })
         .finally(() => setLoading(false));
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleSort = (key: SortKey) => {
@@ -168,7 +176,7 @@ export default function PractitionerDashboard() {
   }
 
   const code = user?.referral_code || "";
-  const waMessage = `Hi! I'd like you to track your meals using Qelvi so I can monitor your nutrition. Please download the app and use my code ${code} when signing up. This will let me see your food logs to give you better dietary advice. Download: https://qelvi.com/register?ref=${code}`;
+  const waMessage = `Hi! I'd like you to track your meals using Qelvi so I can monitor your nutrition. Please download the app and use my code ${code} when signing up. This will let me see your food logs to give you better dietary advice. Download: https://qelvi.netlify.app/register?ref=${code}`;
   const waUrl = `https://wa.me/?text=${encodeURIComponent(waMessage)}`;
 
   return (
@@ -176,15 +184,23 @@ export default function PractitionerDashboard() {
       {/* Invite Patient Modal */}
       {inviteOpen && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setInviteOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setInviteOpen(false)}
+          />
           <div
             className="relative w-full max-w-md mx-4 mb-4 md:mb-0 rounded-2xl p-6"
-            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--bg-border)" }}
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--bg-border)",
+            }}
           >
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <UserPlus size={16} className="text-accent-primary" />
-                <h2 className="text-base font-semibold text-text-primary">Invite Patient</h2>
+                <h2 className="text-base font-semibold text-text-primary">
+                  Invite Patient
+                </h2>
               </div>
               <button
                 onClick={() => setInviteOpen(false)}
@@ -215,10 +231,15 @@ export default function PractitionerDashboard() {
             </div>
 
             {/* Pre-written message */}
-            <p className="text-xs text-text-muted mb-2">Message for your patient</p>
+            <p className="text-xs text-text-muted mb-2">
+              Message for your patient
+            </p>
             <div
               className="text-xs text-text-secondary rounded-xl p-3 mb-5 leading-relaxed"
-              style={{ backgroundColor: "var(--bg-elevated)", border: "1px solid var(--bg-border)" }}
+              style={{
+                backgroundColor: "var(--bg-elevated)",
+                border: "1px solid var(--bg-border)",
+              }}
             >
               {waMessage}
             </div>
@@ -246,7 +267,8 @@ export default function PractitionerDashboard() {
             </button>
 
             <p className="text-[11px] text-text-muted text-center mt-4 leading-snug">
-              When your patient signs up with this code, their nutrition data will be visible on your dashboard.
+              When your patient signs up with this code, their nutrition data
+              will be visible on your dashboard.
             </p>
           </div>
         </div>
@@ -255,14 +277,17 @@ export default function PractitionerDashboard() {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-3">
           <Users size={20} className="text-accent-primary" />
-          <h1 className="text-xl font-semibold text-text-primary">Patient Dashboard</h1>
+          <h1 className="text-xl font-semibold text-text-primary">
+            Patient Dashboard
+          </h1>
         </div>
         {/* Desktop invite button */}
         <button
           onClick={() => setInviteOpen(true)}
           className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
           style={{
-            background: "linear-gradient(135deg, rgba(163,230,53,0.12) 0%, rgba(59,123,255,0.12) 100%)",
+            background:
+              "linear-gradient(135deg, rgba(163,230,53,0.12) 0%, rgba(59,123,255,0.12) 100%)",
             border: "1px solid rgba(163,230,53,0.3)",
             color: "#a3e635",
           }}
@@ -272,7 +297,8 @@ export default function PractitionerDashboard() {
         </button>
       </div>
       <p className="text-xs text-text-muted mb-6">
-        {overview?.total_patients ?? 0} patients · {overview?.active_patients ?? 0} active this week
+        {overview?.total_patients ?? 0} patients ·{" "}
+        {overview?.active_patients ?? 0} active this week
       </p>
 
       {/* Mobile FAB */}
@@ -290,11 +316,15 @@ export default function PractitionerDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="card p-4">
             <p className="text-xs text-text-muted mb-1">Total Patients</p>
-            <p className="text-2xl font-bold text-text-primary">{overview.total_patients}</p>
+            <p className="text-2xl font-bold text-text-primary">
+              {overview.total_patients}
+            </p>
           </div>
           <div className="card p-4">
             <p className="text-xs text-text-muted mb-1">Active (7d)</p>
-            <p className="text-2xl font-bold" style={{ color: "#a3e635" }}>{overview.active_patients}</p>
+            <p className="text-2xl font-bold" style={{ color: "#a3e635" }}>
+              {overview.active_patients}
+            </p>
           </div>
           <div className="card p-4">
             <p className="text-xs text-text-muted mb-1">Avg Adherence</p>
@@ -316,7 +346,12 @@ export default function PractitionerDashboard() {
             <p className="text-xs text-text-muted mb-1">Needs Attention</p>
             <p
               className="text-2xl font-bold"
-              style={{ color: overview.patients_needing_attention.length > 0 ? "#fb923c" : "#a3e635" }}
+              style={{
+                color:
+                  overview.patients_needing_attention.length > 0
+                    ? "#fb923c"
+                    : "#a3e635",
+              }}
             >
               {overview.patients_needing_attention.length}
             </p>
@@ -329,7 +364,9 @@ export default function PractitionerDashboard() {
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={14} style={{ color: "#fb923c" }} />
-            <h2 className="text-sm font-semibold text-text-secondary">Needs Attention</h2>
+            <h2 className="text-sm font-semibold text-text-secondary">
+              Needs Attention
+            </h2>
           </div>
           <div className="space-y-2">
             {overview.patients_needing_attention.map((p) => {
@@ -344,11 +381,17 @@ export default function PractitionerDashboard() {
                   }}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary">{p.name}</p>
-                    <p className="text-xs text-text-muted mt-0.5">{alertIssue(p)}</p>
+                    <p className="text-sm font-medium text-text-primary">
+                      {p.name}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {alertIssue(p)}
+                    </p>
                   </div>
                   <button
-                    onClick={() => navigate(`/practitioner/patients/${p.patient_id}`)}
+                    onClick={() =>
+                      navigate(`/practitioner/patients/${p.patient_id}`)
+                    }
                     className="text-xs px-3 py-1.5 rounded-lg border border-bg-border text-text-muted hover:text-text-primary hover:border-text-muted transition-all flex-shrink-0"
                   >
                     View Details
@@ -364,7 +407,10 @@ export default function PractitionerDashboard() {
       <div className="card p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+            />
             <input
               className="input pl-8 text-sm"
               placeholder="Search patients…"
@@ -399,7 +445,9 @@ export default function PractitionerDashboard() {
         </div>
 
         {filtered.length === 0 ? (
-          <p className="text-sm text-text-muted text-center py-8">No patients found</p>
+          <p className="text-sm text-text-muted text-center py-8">
+            No patients found
+          </p>
         ) : (
           <>
             {/* Desktop table */}
@@ -407,13 +455,27 @@ export default function PractitionerDashboard() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-bg-border">
-                    <th className="text-left text-xs text-text-muted font-medium pb-2 pr-4">Name</th>
-                    <th className="text-left text-xs text-text-muted font-medium pb-2 pr-4">Last Active</th>
-                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">Streak</th>
-                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">Avg Cal (30d)</th>
-                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">Goal</th>
-                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">Adherence</th>
-                    <th className="text-center text-xs text-text-muted font-medium pb-2">Status</th>
+                    <th className="text-left text-xs text-text-muted font-medium pb-2 pr-4">
+                      Name
+                    </th>
+                    <th className="text-left text-xs text-text-muted font-medium pb-2 pr-4">
+                      Last Active
+                    </th>
+                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">
+                      Streak
+                    </th>
+                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">
+                      Avg Cal (30d)
+                    </th>
+                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">
+                      Goal
+                    </th>
+                    <th className="text-right text-xs text-text-muted font-medium pb-2 pr-4">
+                      Adherence
+                    </th>
+                    <th className="text-center text-xs text-text-muted font-medium pb-2">
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -427,12 +489,16 @@ export default function PractitionerDashboard() {
                     return (
                       <tr
                         key={p.patient_id}
-                        onClick={() => navigate(`/practitioner/patients/${p.patient_id}`)}
+                        onClick={() =>
+                          navigate(`/practitioner/patients/${p.patient_id}`)
+                        }
                         className="border-b border-bg-border/50 hover:bg-bg-elevated cursor-pointer transition-colors"
                       >
                         <td className="py-3 pr-4">
                           <div>
-                            <p className="font-medium text-text-primary">{p.name}</p>
+                            <p className="font-medium text-text-primary">
+                              {p.name}
+                            </p>
                             <p className="text-xs text-text-muted">{p.email}</p>
                           </div>
                         </td>
@@ -443,12 +509,17 @@ export default function PractitionerDashboard() {
                           {p.current_streak}d
                         </td>
                         <td className="py-3 pr-4 text-right text-text-secondary text-xs">
-                          {p.avg_calories_30d ? Math.round(p.avg_calories_30d) : "—"}
+                          {p.avg_calories_30d
+                            ? Math.round(p.avg_calories_30d)
+                            : "—"}
                         </td>
                         <td className="py-3 pr-4 text-right text-text-muted text-xs">
                           {p.calorie_goal ?? "—"}
                         </td>
-                        <td className="py-3 pr-4 text-right text-xs font-semibold" style={{ color: adherenceColor }}>
+                        <td
+                          className="py-3 pr-4 text-right text-xs font-semibold"
+                          style={{ color: adherenceColor }}
+                        >
                           {p.adherence_rate}%
                         </td>
                         <td className="py-3 text-center">
@@ -473,21 +544,28 @@ export default function PractitionerDashboard() {
                 return (
                   <div
                     key={p.patient_id}
-                    onClick={() => navigate(`/practitioner/patients/${p.patient_id}`)}
+                    onClick={() =>
+                      navigate(`/practitioner/patients/${p.patient_id}`)
+                    }
                     className="bg-bg-elevated rounded-xl p-3.5 cursor-pointer hover:bg-bg-elevated/80 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <StatusDot days={p.days_since_last_log} />
-                          <p className="font-medium text-sm text-text-primary truncate">{p.name}</p>
+                          <p className="font-medium text-sm text-text-primary truncate">
+                            {p.name}
+                          </p>
                         </div>
                         <p className="text-xs text-text-muted mt-0.5 ml-4">
                           {relativeTime(p.days_since_last_log)}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-semibold" style={{ color: adherenceColor }}>
+                        <p
+                          className="text-sm font-semibold"
+                          style={{ color: adherenceColor }}
+                        >
                           {p.adherence_rate}%
                         </p>
                         <p className="text-xs text-text-muted">adherence</p>
@@ -506,18 +584,25 @@ export default function PractitionerDashboard() {
         <div className="mt-6">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={14} style={{ color: "#a3e635" }} />
-            <h2 className="text-sm font-semibold text-text-secondary">Top Performers</h2>
+            <h2 className="text-sm font-semibold text-text-secondary">
+              Top Performers
+            </h2>
           </div>
           <div className="flex flex-wrap gap-2">
             {overview.top_performing_patients.map((p) => (
               <button
                 key={p.patient_id}
-                onClick={() => navigate(`/practitioner/patients/${p.patient_id}`)}
+                onClick={() =>
+                  navigate(`/practitioner/patients/${p.patient_id}`)
+                }
                 className="card-elevated px-3 py-2 rounded-xl flex items-center gap-2 hover:border-accent-primary/30 transition-all"
               >
                 <Activity size={12} style={{ color: "#a3e635" }} />
                 <span className="text-xs text-text-primary">{p.name}</span>
-                <span className="text-xs font-semibold" style={{ color: "#a3e635" }}>
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: "#a3e635" }}
+                >
                   {p.adherence_rate}%
                 </span>
               </button>

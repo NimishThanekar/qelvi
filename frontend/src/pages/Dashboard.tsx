@@ -245,6 +245,18 @@ export default function Dashboard() {
   const remaining = Math.max(0, goal - consumed);
   const pct = goal > 0 ? Math.min((consumed / goal) * 100, 100) : 0;
 
+  const allEntries = summary?.meals?.flatMap((m) => m.entries) ?? [];
+  const hasMacros = allEntries.some((e) => e.protein_g != null);
+  const macroTotals = hasMacros
+    ? {
+        protein: allEntries.reduce((s, e) => s + (e.protein_g ?? 0), 0),
+        carbs: allEntries.reduce((s, e) => s + (e.carbs_g ?? 0), 0),
+        fat: allEntries.reduce((s, e) => s + (e.fat_g ?? 0), 0),
+        fiber: allEntries.reduce((s, e) => s + (e.fiber_g ?? 0), 0),
+      }
+    : null;
+  const proteinGoal = user?.weight_kg ? Math.round(user.weight_kg * 0.8) : 50;
+
   const festMode = user?.festival_mode || "awareness";
   const activeFestival = festivalData?.active[0] ?? null;
   const upcomingFestival = festivalData?.upcoming ?? null;
@@ -457,6 +469,40 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      {/* Macro progress — only shown when logged items have macro data */}
+      {macroTotals && (
+        <div className="card p-4 mb-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-text-muted mb-3">Macros today</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+            {[
+              { label: "Protein", value: macroTotals.protein, goal: proteinGoal, color: "#38bdf8" },
+              { label: "Carbs",   value: macroTotals.carbs,   goal: 250,         color: "#fbbf24" },
+              { label: "Fat",     value: macroTotals.fat,     goal: 65,          color: "#fb923c" },
+              { label: "Fiber",   value: macroTotals.fiber,   goal: 25,          color: "#34d399" },
+            ].map((m) => (
+              <div key={m.label}>
+                <div className="flex justify-between items-baseline mb-1">
+                  <span className="text-xs text-text-muted">{m.label}</span>
+                  <span className="text-xs font-semibold" style={{ color: m.color }}>
+                    {Math.round(m.value)}g{" "}
+                    <span className="font-normal text-text-muted">/ {m.goal}g</span>
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-bg-elevated overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.min(100, Math.round((m.value / m.goal) * 100))}%`,
+                      backgroundColor: m.color,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Festival banner — active festival (not shown in recovery mode) */}
       {activeFestival && !recovery && (
